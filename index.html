@@ -147,6 +147,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   color-mix(in srgb,var(--paper) 92%,transparent) 74%, var(--paper) 100%)}
 #v-now>*{position:relative;z-index:1}
 #v-now>#nowApod,#v-now>#nowStars,#v-now>#nowScrim{position:absolute;z-index:0}
+#apodTag[hidden]{display:none!important} /* author display:flex would otherwise override the hidden attr */
 #apodTag{margin:12px 16px 0;display:flex;align-items:center;gap:10px;
   background:color-mix(in srgb,var(--paper) 42%,transparent);
   border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);
@@ -2970,7 +2971,7 @@ function renderNowChart(){
     wrap.id = 'nowChartWrap';
     // Borderless overlay per the mockup: the chart floats on the hero backdrop
     // and the readout tucks up underneath it.
-    wrap.style.cssText = 'margin:2px 0 -30px;position:relative;z-index:1;pointer-events:none;'
+    wrap.style.cssText = 'margin:2px 0 -42px;position:relative;z-index:1;pointer-events:none;'
       + 'filter:drop-shadow(0 1px 7px color-mix(in srgb,var(--paper) 90%,transparent))';
     const hero = view.querySelector('#nowHero');
     view.insertBefore(wrap, hero || view.firstChild);
@@ -3006,11 +3007,21 @@ function renderNowChart(){
         stroke="currentColor" stroke-opacity=".28" stroke-width="1" stroke-dasharray="2 5" stroke-linecap="round"/>`;
     }
   }
+  // Pass-label anchor, precomputed so star labels can dodge it (VEGA vs
+  // "SENTINEL-3A - 22:07" collided top-left on real devices).
+  let plx=-999, ply=-999;
+  if(best){
+    let a0=best.azStart, a1=best.azEnd;
+    if(Math.abs(a1-a0)>180) a1 += a1<a0 ? 360 : -360;
+    const mid=((a0+a1)/2%360+360)%360;
+    plx=Math.max(4,Math.min(W-72,X(mid)-30)); ply=Math.max(9,Y(best.max)-5);
+  }
   if(so){
     for(const st of so.stars.slice(0,6)){
       const x=X(st.az), y=Y(st.alt), r=(2.4-st.mag*0.4).toFixed(1);
-      g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(1.2,r)}" fill="currentColor" fill-opacity=".85"/>
-        <text x="${(x+5).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="8" letter-spacing="1" fill="currentColor" fill-opacity=".65">${st.name.toUpperCase()}</text>`;
+      g += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(1.2,r)}" fill="currentColor" fill-opacity=".85"/>`;
+      const clash = Math.abs((y-3)-ply)<11 && (x+5)>plx-14 && (x+5)<plx+132;
+      if(!clash) g += `<text x="${(x+5).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="8" letter-spacing="1" fill="currentColor" fill-opacity=".65">${st.name.toUpperCase()}</text>`;
     }
     for(const p of so.planets){
       const x=X(p.az), y=Y(p.alt);
