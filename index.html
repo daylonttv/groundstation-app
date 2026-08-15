@@ -166,8 +166,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #goNum{font-family:var(--f-mono);font-weight:200;font-size:96px;line-height:.9;letter-spacing:-.04em;
        font-variant-numeric:tabular-nums;color:var(--ink);
        text-shadow:0 4px 40px color-mix(in srgb,var(--paper) 80%,transparent)}
-#goNum.hi{color:var(--go)}
-#goNum.lo{color:var(--alert)}
+/* mockup: the big number stays ink; the verdict phrase carries the state color */
+#goNum.hi,#goNum.lo{color:var(--ink)}
 #goExpand{display:none;margin-top:12px;border-top:1px solid var(--rule);padding-top:10px;text-align:left}
 #goExpand.on{display:block}
 
@@ -3520,7 +3520,28 @@ async function search(){
   }catch(e){ $('#results').innerHTML = '<div class="err">NASA media library unreachable.</div>'; }
 }
 
+// Curated hero set - stable NASA CDN URLs (all verified 200, 2026-08-14),
+// rotated by day-of-year so the NOW hero is never bare when APOD is
+// rate-limited, a video, or just dull. APOD replaces it only once its image
+// actually loads.
+const HERO_SET = [
+  {t:'The Cosmic Cliffs of Carina', c:'NASA / ESA / CSA \u00b7 JWST', u:'https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~large.jpg'},
+  {t:'Southern Ring Nebula', c:'NASA / ESA / CSA \u00b7 JWST', u:'https://images-assets.nasa.gov/image/southern_ring_nebula/southern_ring_nebula~large.jpg'},
+  {t:'Pillars of Creation', c:'NASA / ESA \u00b7 Hubble', u:'https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~large.jpg'},
+  {t:'Hubble eXtreme Deep Field', c:'NASA / ESA \u00b7 Hubble', u:'https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001651/GSFC_20171208_Archive_e001651~large.jpg'},
+  {t:'Ultraviolet Coverage of the UDF', c:'NASA / ESA \u00b7 Hubble', u:'https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001061/GSFC_20171208_Archive_e001061~large.jpg'},
+];
+function paintHero(title, credit, url){
+  const bg=$('#nowApod'), tag=$('#apodTag');
+  if(bg) bg.style.backgroundImage=
+    `linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42)), url("${url}")`;
+  if(tag){ $('#apT').textContent=title; $('#apC').textContent=credit; tag.hidden=false; }
+}
 async function loadAPOD(){
+  // hero first: curated pick for today, painted immediately
+  const doy = Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/864e5);
+  const cur = HERO_SET[doy % HERO_SET.length];
+  paintHero(cur.t, cur.c, cur.u);
   try{
     const d = await jget(`https://api.nasa.gov/planetary/apod?api_key=${NASA_KEY}`,{timeout:18000});
     const a = ingest({title:d.title, url:d.url, date:d.date, desc:d.explanation, copyright:d.copyright});
@@ -3537,17 +3558,14 @@ async function loadAPOD(){
       <div style="font-weight:600;margin-top:7px">${esc(a.title)}</div>
       <div class="muted" style="margin-top:4px">${esc((a.desc||'').slice(0,240))}…</div>
       <div class="chip ${a.rights===RIGHTS.VO?'alert':'go'}" style="margin-top:7px">${RCHIP[a.rights]||esc(a.rights)}</div>`;
-    // NOW hero backdrop — same fetched image, same rights gate (in-app display
-    // only, credit always shown). Silently skipped for video days / no image.
+    // NOW hero: swap in today's APOD only once its image actually loads,
+    // so a slow/failed fetch never replaces the curated backdrop.
     if(d.media_type==='image' && u && a.rights!==RIGHTS.BLOCKED){
-      const bg=$('#nowApod'), tag=$('#apodTag');
-      if(bg) bg.style.backgroundImage=
-        `linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42)), url("${u}")`;
-      if(tag){
-        $('#apT').textContent=a.title||'Astronomy picture of the day';
-        $('#apC').textContent=(a.credit||a.copyright||'NASA APOD')+' · '+(d.date||'');
-        tag.hidden=false;
-      }
+      const im = new Image();
+      im.onload = () => paintHero(
+        a.title||'Astronomy picture of the day',
+        (a.credit||a.copyright||'NASA APOD')+' \u00b7 '+(d.date||''), u);
+      im.src = u;
     }
   }catch(e){
     $('#apod').innerHTML = '<div class="err">APOD unavailable — NASA API rate limit. Retry in an hour.</div>';
