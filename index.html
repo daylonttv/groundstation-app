@@ -93,20 +93,24 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .tbtn.act{border-color:var(--signal);color:var(--signal)}
 
 /* ---------- bottom nav ---------- */
-#nav{height:var(--nav-h);display:grid;grid-template-columns:repeat(5,1fr);
-     border-top:1px solid var(--rule);background:var(--paper);
+#nav{height:calc(var(--nav-h) + 10px);display:grid;grid-template-columns:repeat(5,1fr);
+     border-top:1px solid var(--rule);
+     background:linear-gradient(0deg,color-mix(in srgb,var(--paper) 98%,transparent),color-mix(in srgb,var(--paper) 72%,transparent));
+     backdrop-filter:blur(12px);
      padding-bottom:env(safe-area-inset-bottom,0px);z-index:50}
 #nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
             color:var(--ink-soft);font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
             border-top:2px solid transparent;margin-top:-1px}
-#nav button.on{color:var(--signal);border-top-color:var(--signal)}
+#nav button.on{color:var(--signal);border-top-color:transparent}
+#nav button.on svg{filter:drop-shadow(0 0 7px color-mix(in srgb,var(--signal) 60%,transparent))}
 #nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- primitives ---------- */
-.sect{padding:14px 12px;border-bottom:1px solid var(--rule)}
+.sect{padding:8px 16px 16px;border-bottom:none;background:var(--panel)}
+#v-now .sect:first-of-type{border-radius:2px 2px 0 0;box-shadow:0 -14px 44px color-mix(in srgb,var(--paper) 55%,transparent);padding-top:14px}
 /* section headers use the redesign kicker voice: small uppercase mono, letterspaced */
-.lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
-     color:var(--ink-faint);font-weight:600;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center}
+.lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+     color:var(--ink-faint);font-weight:600;margin:10px 0 10px;display:flex;justify-content:space-between;align-items:center}
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:var(--r);padding:11px}
 .row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--rule)}
 .row:last-child{border-bottom:none}
@@ -125,28 +129,42 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 /* ---------- NOW hero: persona + big score readout ---------- */
 /* APOD hero backdrop: sits behind the hero, fades to --paper so content stays
    legible. Painted by fragD loadAPOD(); empty div costs nothing when hidden. */
-#nowApod{position:absolute;left:0;right:0;top:0;height:44%;z-index:0;pointer-events:none;
-  background-size:cover;background-position:center 30%;filter:var(--img-filter);
-  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.8) 0%,rgba(0,0,0,.55) 55%,transparent 100%);
-  mask-image:linear-gradient(180deg,rgba(0,0,0,.8) 0%,rgba(0,0,0,.55) 55%,transparent 100%)}
+#nowApod{position:absolute;left:0;right:0;top:0;height:66%;z-index:0;pointer-events:none;
+  background-size:cover;background-position:center 34%;filter:var(--img-filter);
+  background-image:linear-gradient(180deg,#0f0b26,#3a2452); /* nebula fallback - never bare */
+  -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
+/* starfield + scrim complete the mockup's layer stack */
+#nowStars{position:absolute;left:0;right:0;top:0;height:38%;z-index:0;pointer-events:none}
+#nowStars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:tw 3.8s ease-in-out infinite}
+#nowStars i:nth-child(3n){width:1px;height:1px;opacity:.4}
+#nowStars i:nth-child(2n){animation-delay:1.1s}
+#nowStars i:nth-child(5n){animation-delay:2.3s}
+@keyframes tw{50%{opacity:.15}}
+#nowScrim{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,
+  color-mix(in srgb,var(--paper) 50%,transparent) 0%, color-mix(in srgb,var(--paper) 6%,transparent) 15%,
+  color-mix(in srgb,var(--paper) 12%,transparent) 33%, color-mix(in srgb,var(--paper) 60%,transparent) 56%,
+  color-mix(in srgb,var(--paper) 92%,transparent) 74%, var(--paper) 100%)}
 #v-now>*{position:relative;z-index:1}
-#v-now>#nowApod{position:absolute;z-index:0}  /* must out-specify the >* rule */
-#apodTag{margin:10px 12px 0;display:flex;align-items:center;gap:10px;
-  background:color-mix(in srgb,var(--paper) 55%,transparent);border:1px solid var(--rule);
+#v-now>#nowApod,#v-now>#nowStars,#v-now>#nowScrim{position:absolute;z-index:0}
+#apodTag{margin:12px 16px 0;display:flex;align-items:center;gap:10px;
+  background:color-mix(in srgb,var(--paper) 42%,transparent);
+  border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);
   border-radius:14px;padding:8px 11px;backdrop-filter:blur(10px)}
 #apodTag .apk{font-family:var(--f-mono);font-size:8px;letter-spacing:.16em;color:var(--signal)}
 #apodTag h5{font-size:12.5px;font-weight:600;margin-top:2px}
 #apodTag s{display:block;font-family:var(--f-mono);font-size:10px;color:var(--ink-soft);text-decoration:none;margin-top:3px}
-#nowHero{padding:16px 12px 4px;text-align:center;border-bottom:1px solid var(--rule)}
+#nowHero{padding:0 12px 6px;text-align:center}
 #go{padding:0 0 14px;cursor:pointer;position:relative}
-#goHead{font-family:var(--f-display);font-weight:600;font-size:21px;line-height:1.2;letter-spacing:-.012em;
-        max-width:20ch;margin:4px auto 0}
-#goSub{margin:6px auto 0;font-size:13px;color:var(--ink-soft);line-height:1.5;max-width:34ch}
+#goHead{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.22;letter-spacing:-.012em;
+        max-width:17ch;margin:6px auto 0;text-shadow:0 2px 18px color-mix(in srgb,var(--paper) 80%,transparent)}
+#goSub{margin:8px auto 0;font-size:13.5px;color:var(--ink-soft);line-height:1.55;max-width:32ch}
 #goMeta{margin-top:11px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
 .score{position:relative;margin:2px 0 0}
 .score s{font:600 14px/1 var(--f-mono);color:var(--ink-soft);text-decoration:none;letter-spacing:.08em}
-#goNum{font-family:var(--f-mono);font-weight:300;font-size:72px;line-height:.95;letter-spacing:-.04em;
-       font-variant-numeric:tabular-nums;color:var(--ink)}
+#goNum{font-family:var(--f-mono);font-weight:200;font-size:96px;line-height:.9;letter-spacing:-.04em;
+       font-variant-numeric:tabular-nums;color:var(--ink);
+       text-shadow:0 4px 40px color-mix(in srgb,var(--paper) 80%,transparent)}
 #goNum.hi{color:var(--go)}
 #goNum.lo{color:var(--alert)}
 #goExpand{display:none;margin-top:12px;border-top:1px solid var(--rule);padding-top:10px;text-align:left}
@@ -364,6 +382,13 @@ html[data-theme="red"] #cesium::after{content:"";position:absolute;inset:0;point
     <section class="view on" id="v-now">
       <!-- APOD hero backdrop — painted by fragD loadAPOD(); decorative only -->
       <div id="nowApod" aria-hidden="true"></div>
+      <div id="nowStars" aria-hidden="true">
+        <i style="left:18%;top:10%"></i><i style="left:30%;top:6%"></i><i style="left:44%;top:12%"></i><i style="left:60%;top:8%"></i>
+        <i style="left:72%;top:14%"></i><i style="left:85%;top:9%"></i><i style="left:10%;top:20%"></i><i style="left:38%;top:22%"></i>
+        <i style="left:66%;top:24%"></i><i style="left:80%;top:28%"></i><i style="left:6%;top:30%"></i><i style="left:52%;top:30%"></i>
+        <i style="left:26%;top:34%"></i><i style="left:90%;top:34%"></i><i style="left:14%;top:44%"></i><i style="left:48%;top:46%"></i>
+      </div>
+      <div id="nowScrim" aria-hidden="true"></div>
       <div id="apodTag" hidden>
         <div class="api"><div class="apk">◆ IMAGE OF THE DAY</div><h5 id="apT"></h5><s id="apC"></s></div>
       </div>
@@ -2943,9 +2968,12 @@ function renderNowChart(){
   if(!wrap){
     wrap = document.createElement('div');
     wrap.id = 'nowChartWrap';
-    wrap.style.cssText = 'margin:0 0 10px;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);'
-      + 'border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--ink) 4%,transparent)';
-    view.insertBefore(wrap, view.firstChild);
+    // Borderless overlay per the mockup: the chart floats on the hero backdrop
+    // and the readout tucks up underneath it.
+    wrap.style.cssText = 'margin:2px 0 -30px;position:relative;z-index:1;pointer-events:none;'
+      + 'filter:drop-shadow(0 1px 7px color-mix(in srgb,var(--paper) 90%,transparent))';
+    const hero = view.querySelector('#nowHero');
+    view.insertBefore(wrap, hero || view.firstChild);
   }
   wrap.style.display = '';
   const W=360, H=150;
@@ -3502,9 +3530,10 @@ async function loadAPOD(){
     // only, credit always shown). Silently skipped for video days / no image.
     if(d.media_type==='image' && u && a.rights!==RIGHTS.BLOCKED){
       const bg=$('#nowApod'), tag=$('#apodTag');
-      if(bg) bg.style.backgroundImage=`url("${u}")`;
+      if(bg) bg.style.backgroundImage=
+        `linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42)), url("${u}")`;
       if(tag){
-        $('#apT').textContent=a.title||'';
+        $('#apT').textContent=a.title||'Astronomy picture of the day';
         $('#apC').textContent=(a.credit||a.copyright||'NASA APOD')+' · '+(d.date||'');
         tag.hidden=false;
       }
