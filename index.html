@@ -94,11 +94,12 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #brand span{color:var(--signal)}
 /* mockup: location is a glass pill with a glowing pin dot */
 #loc{margin-left:auto;font-family:var(--f-mono);font-size:11px;font-weight:600;color:var(--ink);
-     display:flex;align-items:center;gap:6px;cursor:pointer;
+     display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;
+     min-width:0;max-width:44vw;
      background:color-mix(in srgb,var(--ink) 14%,transparent);
      border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);
      padding:8px 10px;border-radius:20px;backdrop-filter:blur(6px)}
-#loc b{color:var(--ink);font-weight:600}
+#loc b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;max-width:calc(44vw - 44px)}
 #loc .pin{width:6px;height:6px;border-radius:50%;background:var(--go);box-shadow:0 0 9px var(--go);flex:none}
 .tbtn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:var(--r);
       font-size:13px;background:var(--panel)}
@@ -137,7 +138,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #nowSheet .sect{background:transparent}
 #nowSheet .lbl{margin:20px 6px 10px}
 html[data-theme="atlas"] #nowSheet{background:var(--panel);box-shadow:0 -10px 30px rgba(15,21,25,.13)}
-html[data-theme="atlas"] #nowSheet::before{filter:brightness(5.3) saturate(.3);opacity:.96}
+html[data-theme="atlas"] #nowSheet::before{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='390' height='48' preserveAspectRatio='none'><path d='M0 48 L0 30 Q30 24 60 28 T120 22 Q150 12 165 20 L172 8 L178 20 Q200 16 230 26 T300 20 Q330 14 360 24 T390 26 L390 48 Z' fill='%23F7F8F9'/></svg>") no-repeat bottom center/cover}
+html[data-theme="red"] #nowSheet::before{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='390' height='48' preserveAspectRatio='none'><path d='M0 48 L0 30 Q30 24 60 28 T120 22 Q150 12 165 20 L172 8 L178 20 Q200 16 230 26 T300 20 Q330 14 360 24 T390 26 L390 48 Z' fill='%23140100'/></svg>") no-repeat bottom center/cover}
 /* section headers use the redesign kicker voice: small uppercase mono, letterspaced */
 .lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
      color:var(--ink-faint);font-weight:600;margin:10px 0 10px;display:flex;justify-content:space-between;align-items:center}
@@ -2667,7 +2669,7 @@ const hasHr  = (...k) => GS.hasHourly  ? GS.hasHourly(...k)
 const hasCur = (...k) => GS.hasCurrent ? GS.hasCurrent(...k)
   : !!(S.wx && S.wx.current && k.every(x => S.wx.current[x] != null));
 const _baseCycleTheme = GS.cycleTheme;
-let _lastHero = null, _bootLoaded = false, _reminderBlockNote = false;
+let _lastHero = null, _bootLoaded = false, _reminderBlockNote = false, _topRO = null;
 
 /* Cross-fragment helpers are CALLED, never reimplemented. These thin
    wrappers let fragD keep working whether fragA has shipped its refactor
@@ -3626,7 +3628,7 @@ function paintHero(title, credit, url){
   const bg=$('#nowApod'), tag=$('#apodTag');
   _lastHero = {title, credit, url};
   const veil = document.documentElement.dataset.theme==='atlas'
-    ? 'linear-gradient(180deg, rgba(255,255,255,.28), rgba(230,235,240,.45))'
+    ? 'linear-gradient(180deg, rgba(255,255,255,.14), rgba(230,235,240,.34))'
     : 'linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42))';
   if(bg) bg.style.backgroundImage=
     `${veil}, url("${url}")`;
@@ -3891,6 +3893,10 @@ async function boot(){
   { const vn=document.getElementById('v-now');
     if(vn) vn.addEventListener('scroll', syncTop, {passive:true});
     window.addEventListener('resize', syncTop);
+    const top=document.getElementById('top');
+    if(top && 'ResizeObserver' in window){
+      try{ _topRO = new ResizeObserver(syncTop); _topRO.observe(top); }catch(e){}
+    }
     syncTop(); }
 
   // #19: on return-to-foreground, refresh stale feeds (weather/Kp >20m, TLE >6h)
