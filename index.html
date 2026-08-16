@@ -173,7 +173,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #v-now>*{position:relative;z-index:1}
 #v-now>#nowApod,#v-now>#nowStars,#v-now>#nowScrim{position:absolute;z-index:0}
 #apodTag[hidden]{display:none!important} /* author display:flex would otherwise override the hidden attr */
-#apodTag{margin:14px 22px 0;display:flex;align-items:center;gap:10px;
+#apodTag{margin:calc(var(--top-pad,110px) + 6px) 22px 0;display:flex;align-items:center;gap:10px;
   background:color-mix(in srgb,var(--paper) 55%,transparent);
   border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);
   border-radius:14px;padding:8px 10px;backdrop-filter:blur(10px)}
