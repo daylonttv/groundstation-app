@@ -103,6 +103,10 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .tbtn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:var(--r);
       font-size:13px;background:var(--panel)}
 .tbtn.act{border-color:var(--signal);color:var(--signal)}
+.themeHint{display:flex;align-items:center;gap:7px;font:600 10px/1.25 var(--f-mono);letter-spacing:.04em;color:var(--ink-soft);
+  max-width:100%;padding:2px 0}
+.themeHint button{width:18px;height:18px;border:1px solid var(--rule);border-radius:var(--r);font:700 11px/1 var(--f-mono);
+  color:var(--ink-faint);background:var(--panel);flex:none}
 
 /* ---------- bottom nav ---------- */
 #nav{height:calc(var(--nav-h) + 12px);display:grid;grid-template-columns:repeat(5,1fr);
@@ -132,6 +136,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   margin:6px auto 2px;position:relative;z-index:3}
 #nowSheet .sect{background:transparent}
 #nowSheet .lbl{margin:20px 6px 10px}
+html[data-theme="atlas"] #nowSheet{background:var(--panel);box-shadow:0 -10px 30px rgba(15,21,25,.13)}
+html[data-theme="atlas"] #nowSheet::before{filter:brightness(5.3) saturate(.3);opacity:.96}
 /* section headers use the redesign kicker voice: small uppercase mono, letterspaced */
 .lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
      color:var(--ink-faint);font-weight:600;margin:10px 0 10px;display:flex;justify-content:space-between;align-items:center}
@@ -159,8 +165,10 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   background-image:linear-gradient(180deg,#0f0b26,#3a2452); /* nebula fallback - never bare */
   -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);
   mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
+html[data-theme="atlas"] #nowApod{background-image:linear-gradient(180deg,#dfe5ec,#b9c6d6)}
 /* starfield + scrim complete the mockup's layer stack */
 #nowStars{position:absolute;left:0;right:0;top:0;height:45%;z-index:0;pointer-events:none}
+html[data-theme="atlas"] #nowStars{display:none}
 #nowStars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:tw 3.8s ease-in-out infinite}
 #nowStars i:nth-child(3n){width:1px;height:1px;opacity:.4}
 #nowStars i:nth-child(2n){animation-delay:1.1s}
@@ -196,6 +204,10 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #goNum{font-family:var(--f-mono);font-weight:200;font-size:100px;line-height:.9;letter-spacing:-.04em;
        font-variant-numeric:tabular-nums;color:var(--ink);
        text-shadow:0 4px 40px color-mix(in srgb,var(--paper) 80%,transparent)}
+html[data-theme="atlas"] #goHead,
+html[data-theme="atlas"] #goSub,
+html[data-theme="atlas"] #goNum,
+html[data-theme="atlas"] .persona .word{text-shadow:none}
 /* mockup: the big number stays ink; the verdict phrase carries the state color */
 #goNum.hi,#goNum.lo{color:var(--ink)}
 #goExpand{display:none;margin-top:12px;border-top:1px solid var(--rule);padding-top:10px;text-align:left}
@@ -534,7 +546,7 @@ html[data-theme="red"] #cesium::after{content:"";position:absolute;inset:0;point
           </select>
         </div>
         <div class="overlay" id="satPanel" style="left:8px;right:8px;bottom:8px;padding:10px">
-          <div id="satInfo" class="muted">Loading orbital elements…</div>
+          <div id="satInfo" class="muted">3D engine loads on first open (large download).</div>
         </div>
       </div>
     </section>
@@ -1229,7 +1241,7 @@ function computeScore(){
     head = `Stay in tonight.`;
     sub  = `Main problem: ${limitText(limit,{cloud,moon,kp,darkHrs,hasDark})}.`;
   }
-  if (twilightMode) sub += ' No astronomical darkness at this latitude right now — scored for twilight observing.';
+  if (twilightMode) sub += ' No full darkness tonight at this latitude. Scored for twilight.';
 
   S.score = {score, parts, limit, head, sub, cloud, moon, bestPass, darkHrs, hasDark,
              tt, twilightMode, kp};
@@ -1809,7 +1821,7 @@ function updateRadarAvailability(){
   LAYERS[0].avail = ok;
   ensureNote();
   if(usNote){
-    usNote.textContent = 'NOAA NEXRAD is US-only here — NASA layers still work';
+    usNote.textContent = 'NOAA NEXRAD is US-only. NASA layers still work.';
     usNote.style.display = ok ? 'none' : 'block';
   }
   if(ok && !map.getSource('rad-active')){
@@ -1880,7 +1892,7 @@ function renderLayerToggles(){
     const dead = L.avail===false;
     const lit = L.on && !dead;
     const n = el(`<div class="tog ${lit?'on':''} ${dead?'unavail':''}" role="switch" tabindex="0"
-      aria-checked="${lit}" aria-label="${L.label}${dead?' — unavailable':''}"><i></i><span>${L.label}</span></div>`);
+      aria-checked="${lit}" aria-label="${L.label}${dead?' (unavailable)':''}"><i></i><span>${L.label}</span></div>`);
     L._node = n;
     const act = ()=>{ if(L.avail===false) return; L.on=!L.on;
       n.classList.toggle('on',L.on); n.setAttribute('aria-checked',L.on); toggleLayer(L); };
@@ -2383,8 +2395,8 @@ async function initGlobe(){
   if(viewer) return;
   overlay('<span>Loading 3D globe…</span>');
   try{ await ensureCesium(); }
-  catch(e){ globeError('3D engine failed to load — check the connection.'); return; }
-  if(typeof Cesium==='undefined'){ globeError('3D engine failed to load — check the connection.'); return; }
+  catch(e){ globeError('3D engine failed to load. Check the connection.'); return; }
+  if(typeof Cesium==='undefined'){ globeError('3D engine failed to load. Check the connection.'); return; }
 
   try{
     Cesium.Ion.defaultAccessToken = undefined;   // nothing here needs it
@@ -2612,7 +2624,7 @@ function setBody(b){
     viewer.scene.globe.enableLighting = false;
     ents.forEach(e=>e.show=false); if(orbitEnt) orbitEnt.show=false;
     userTracking = false;                          // no Earth sat to hold the camera on
-    $('#satInfo').innerHTML = `<div class="muted">Viewing <b>${b[0].toUpperCase()+b.slice(1)}</b> — NASA Trek mosaic. Same camera, different world.</div>`;
+    $('#satInfo').innerHTML = `<div class="muted">Viewing <b>${b[0].toUpperCase()+b.slice(1)}</b>. NASA Trek global mosaic.</div>`;
   }
 }
 
@@ -2654,6 +2666,8 @@ const hasHr  = (...k) => GS.hasHourly  ? GS.hasHourly(...k)
   : !!(S.wx && S.wx.hourly  && k.every(x => S.wx.hourly[x] != null));
 const hasCur = (...k) => GS.hasCurrent ? GS.hasCurrent(...k)
   : !!(S.wx && S.wx.current && k.every(x => S.wx.current[x] != null));
+const _baseCycleTheme = GS.cycleTheme;
+let _lastHero = null, _bootLoaded = false, _reminderBlockNote = false;
 
 /* Cross-fragment helpers are CALLED, never reimplemented. These thin
    wrappers let fragD keep working whether fragA has shipped its refactor
@@ -2714,6 +2728,24 @@ function go(v){
     if(GS.resumeGlobe){ try{ GS.resumeGlobe(); }catch(e){} }   // fragC: resume batched propagation
   }
 }
+function showThemeHint(){
+  if(localStorage.getItem('gs_theme_hint') || $('#themeHint')) return;
+  const top = $('#top'), tel = $('#telemetry'); if(!top || !tel) return;
+  const h = el(`<div id="themeHint" class="themeHint">Tip: ◐ cycles night / red (night-vision) / light.
+    <button type="button" aria-label="Dismiss theme tip" onclick="GS.dismissThemeHint()">×</button></div>`);
+  top.insertBefore(h, tel.nextSibling);
+  try{ syncTop(); }catch(e){}
+}
+function dismissThemeHint(){
+  localStorage.setItem('gs_theme_hint','1');
+  const h = $('#themeHint'); if(h) h.remove();
+  try{ syncTop(); }catch(e){}
+}
+function cycleTheme(){
+  if(typeof _baseCycleTheme==='function') _baseCycleTheme();
+  dismissThemeHint();
+  if(_lastHero) paintHero(_lastHero.title, _lastHero.credit, _lastHero.url);
+}
 
 /* ---------- location: no permission wall ----------
    The app opens with a working score on a default location. Precise
@@ -2728,12 +2760,8 @@ function openLoc(){
     <button class="card" style="width:100%;margin-top:10px;text-align:left"
             onclick="GS.useGPS()">Use my precise location →</button>
     <div class="muted" style="margin-top:9px;line-height:1.6">
-      Pass times and the GO score are computed on your device. To fetch the
-      forecast, look up a place name, and load radar, map and NASA imagery,
-      your coordinates (or the map area you're viewing) are sent to those
-      providers — Open-Meteo, the geocoder, NASA, NOAA/Iowa Environmental
-      Mesonet (radar tiles) and USGS (basemaps). There's no Groundstation
-      account or server, but those lookups do leave the device.</div>`);
+      Looking up a place or loading forecast, radar and imagery sends coordinates
+      to those providers. There is no Groundstation account or server.</div>`);
 }
 async function findCity(){
   const q = $('#cityQ').value.trim(); if(!q) return;
@@ -2754,7 +2782,7 @@ function useGPS(){
   if(!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     p=>setLoc({name:'My location', lat:+p.coords.latitude.toFixed(4), lon:+p.coords.longitude.toFixed(4)}),
-    ()=>alert('Location unavailable — search for a city instead.'), {timeout:9000});
+    ()=>alert('Location unavailable. Search for a city instead.'), {timeout:9000});
 }
 function setLoc(l){
   S.loc = l; localStorage.setItem('gs.loc', JSON.stringify(l));
@@ -2857,7 +2885,7 @@ function renderScore(){
       <span class="gv">${Math.round(p.v)}</span><span class="gv" style="color:var(--ink-soft)">×${Math.round(p.w*100)}%</span></div>`;
   }).join('') + `<div class="muted" style="margin-top:8px;font-size:11px">
       Weighted composite. Computed on this device from forecast, orbital
-      elements and space-weather feeds — no account, no server; light pollution is estimated.</div>`;
+      elements and space-weather feeds. No account, no server; light pollution is estimated.</div>`;
   try{ renderPersona(s); }catch(e){}
 }
 
@@ -2866,7 +2894,7 @@ function renderNow(){
   const s = S.score, wx = S.wx;
   if(wx && !hasCur('temperature_2m','cloud_cover','wind_speed_10m')){
     // R7: partial Open-Meteo payload — say so instead of rendering NaN cards.
-    $('#nowCond').innerHTML = '<div class="err">Forecast incomplete — Open-Meteo returned partial data.</div>';
+    $('#nowCond').innerHTML = '<div class="err">Forecast incomplete. Open-Meteo returned partial data.</div>';
   }else if(wx){
     const c = wx.current, pt = GS.precipType();
     // #5: precipType() now returns {type:'none',label:'None'} on dry conditions,
@@ -2898,13 +2926,13 @@ function renderNow(){
   const fut = S.passes.filter(p=>p.start>now);
   const up = pinnedPasses(fut, 3);   // list[0] === the headline pass
   $('#nowPasses').innerHTML = up.length ? up.map(passRow).join('')
-    : `<div class="err">No passes peaking above 10° in the next 5 days${S.tles.length?'':' — orbital element feeds are not responding, and nothing stale is shown'}.</div>`;
+    : `<div class="err">No passes peaking above 10° in the next 5 days${S.tles.length?'':'. Orbital element feeds are not responding, and nothing stale is shown'}.</div>`;
   bindBells();
 
   if(s){
     const bits=[];
     if(s.kp && s.kp>=5) bits.push(`<div class="item"><div class="ic">✦︎</div><div class="bd">
-      <div class="t">Geomagnetic storm — Kp ${s.kp.toFixed(1)}</div>
+      <div class="t">Geomagnetic storm: Kp ${s.kp.toFixed(1)}</div>
       <div class="s">AURORA POSSIBLE AT THIS LATITUDE</div></div></div>`);
     if(s.cloud>80) bits.push(`<div class="item"><div class="ic">☁︎</div><div class="bd">
       <div class="t">Overcast this evening</div><div class="s">${Math.round(s.cloud)}% MEAN COVER NEXT 8H</div></div></div>`);
@@ -3107,7 +3135,7 @@ function renderNowChart(){
       font-size="9" letter-spacing="1" fill="var(--station)">${esc(best.name.replace(/\s*\(.*\)/,'').toUpperCase())} · ${hhmmL(best.start)} ▸</text>`;
   }
   wrap.innerHTML = `<svg id="nowChart" viewBox="0 0 ${W} ${H}" style="display:block;width:100%;color:var(--ink)"
-    font-family="var(--f-mono),ui-monospace,monospace" role="img" aria-label="Sky chart — current planets, bright stars, moon and next pass">${g}</svg>`;
+    font-family="var(--f-mono),ui-monospace,monospace" role="img" aria-label="Sky chart: current planets, bright stars, moon and next pass">${g}</svg>`;
 }
 
 /* ---------- cloud nowcast line (#radarRead, above the NOW radar strip) ---------- */
@@ -3123,7 +3151,7 @@ function renderRadarRead(){
     strip.appendChild(n);
   }
   const nc = GS.cloudNowcast ? GS.cloudNowcast() : null;
-  if(!nc){ n.textContent = 'Cloud trend — no data'; return; }
+  if(!nc){ n.textContent = 'Cloud trend: no data'; return; }
   const h = x => x<1 ? '<1 h' : `~${x} h`;
   if(nc.kind==='clearing')
     n.innerHTML = `<b style="color:var(--go)">Clearing in ${h(nc.hours)}</b> · cover drops below 40% around ${hhmmL(nc.at)}`;
@@ -3176,6 +3204,7 @@ function passRow(p,i){
     </div>
     <button class="bell ${on?'on':''}" data-id="${esc(id)}" data-t="${p.start.getTime()}"
             data-n="${esc(nm)}" aria-pressed="${on?'true':'false'}"
+            title="Alerts 10 min before the pass"
             aria-label="Remind me 10 minutes before ${esc(nm)} pass">${on?'◉':'○'}</button></div>`;
 }
 
@@ -3201,11 +3230,19 @@ function persistReminders(){
   try{ localStorage.setItem('gs.rem', JSON.stringify([...S.reminders.values()])); }catch(e){}
 }
 function notifyPass(name){
-  const body = `${name||'A pass'} in 10 minutes — tap ◐ to switch to red mode.`;
+  const body = `${name||'A pass'} in 10 minutes. Tap ◐ to switch to red mode.`;
   if(typeof Notification!=='undefined' && Notification.permission==='granted'){
     try{ new Notification('Pass in 10 minutes',{body}); return; }catch(e){}
   }
   try{ console.info('[reminder]', body); }catch(e){}   // fallback cue when notifications unavailable
+}
+function reminderBlocked(b){
+  if(b) setBell(b,false);
+  if(_reminderBlockNote) return;
+  _reminderBlockNote = true;
+  const host = $('#nowPasses'); if(!host) return;
+  host.insertAdjacentHTML('beforeend',
+    '<div class="muted remNote" style="margin-top:7px">Reminders are off. Notifications are blocked in the browser.</div>');
 }
 function armReminder(rem){
   if(!rem || rem.time==null) return;
@@ -3241,6 +3278,7 @@ function bindBells(){
       }else{
         if(typeof Notification!=='undefined' && Notification.permission!=='granted'){
           try{ await Notification.requestPermission(); }catch(e){}
+          if(Notification.permission==='denied'){ reminderBlocked(b); return; }
         }
         const rem = {id, time:t, name};
         S.reminders.set(id, rem);
@@ -3288,8 +3326,8 @@ function renderSky(){
   const H = S.wx && S.wx.hourly;
   if(!H || !H.time || !hasHr('cloud_cover')){
     $('#skyChart').innerHTML = S.wx
-      ? '<div class="err">Forecast incomplete — Open-Meteo returned partial data.</div>'
-      : '<div class="muted">Open-Meteo hourly feed unavailable — score and passes still work.</div>';
+      ? '<div class="err">Forecast incomplete. Open-Meteo returned partial data.</div>'
+      : '<div class="muted">Open-Meteo hourly feed unavailable. Score and passes still work.</div>';
   }else{
   const i0 = GS.wxHourIndex ? GS.wxHourIndex() : Math.max(0,H.time.findIndex(t=>LT(t)>=new Date()));
   const tw = tonight();
@@ -3311,14 +3349,14 @@ function renderSky(){
       </div>`;}).join('')}</div>
     <div style="display:flex;justify-content:space-between;margin-top:4px" class="muted mono">
       <span>${hhmm(hrs[0].label)}</span><span>DARK HOURS HIGHLIGHTED</span><span>${hhmm(hrs[hrs.length-1].label)}</span></div>`
-    : `<div class="muted">Open-Meteo hourly feed unavailable — score and passes still work.</div>`;
+    : `<div class="muted">Open-Meteo hourly feed unavailable. Score and passes still work.</div>`;
   }
 
   // #1: same canonical ordering as NOW, and the same pinned recommended pass first.
   const now = new Date();
   const up = pinnedPasses(S.passes.filter(p=>p.start>now), 12);
   $('#passList').innerHTML = up.length ? up.map(p=>passRow(p)+arc(p)).join('')
-    : `<div class="err">No visible passes found. ${S.tles.length?'':'Orbital element feeds are not responding — nothing stale is shown.'}</div>`;
+    : `<div class="err">No visible passes found. ${S.tles.length?'':'Orbital element feeds are not responding. Nothing stale is shown.'}</div>`;
   bindBells();
 
   try{ renderPlanets(); }catch(e){ const h=$('#skyPlanets'); if(h) h.innerHTML='<div class="muted">Planet ephemeris unavailable.</div>'; }
@@ -3531,11 +3569,11 @@ async function loadEPIC(){
       ev = e.events.slice(0,2).map(x=>x.title).join(' · ');
     }catch(_){}
     $('#epicCap').textContent =
-      `${new Date(im.date).toLocaleDateString([], {month:'long', day:'numeric'})} — full disc from DSCOVR at L1, `
+      `${new Date(im.date).toLocaleDateString([], {month:'long', day:'numeric'})}. Full disc from DSCOVR at L1, `
       + `sub-point ${im.centroid_coordinates.lat.toFixed(1)}°, ${im.centroid_coordinates.lon.toFixed(1)}°.`
       + (ev?` Ongoing events (NASA EONET): ${ev}.`:'');
   }catch(e){
-    $('#epicCap').innerHTML = '<div class="err">EPIC unavailable — NASA API rate limit. Retry in an hour.</div>';
+    $('#epicCap').innerHTML = '<div class="err">EPIC unavailable. NASA API rate limit. Retry in an hour.</div>';
   }
 }
 
@@ -3549,7 +3587,7 @@ function timeMachine(){
     + `&BBOX=${lon-span},${lat-span/2},${lon+span},${lat+span/2}`
     + `&WIDTH=720&HEIGHT=360&FORMAT=image/${ext==='jpg'?'jpeg':ext}&TIME=${d}`;
   $('#tmCap').textContent = `${$('#tmLayer').selectedOptions[0].text} over ${S.loc.name} on ${d}. `
-    + `NASA GIBS is time-enabled back to roughly 2000 — every frame is public domain and exportable.`;
+    + `NASA GIBS is time-enabled back to roughly 2000. Every frame is public domain and exportable.`;
 }
 
 async function search(){
@@ -3586,8 +3624,12 @@ const HERO_SET = [
 ];
 function paintHero(title, credit, url){
   const bg=$('#nowApod'), tag=$('#apodTag');
+  _lastHero = {title, credit, url};
+  const veil = document.documentElement.dataset.theme==='atlas'
+    ? 'linear-gradient(180deg, rgba(255,255,255,.28), rgba(230,235,240,.45))'
+    : 'linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42))';
   if(bg) bg.style.backgroundImage=
-    `linear-gradient(180deg, rgba(15,11,38,.30), rgba(58,36,82,.42)), url("${url}")`;
+    `${veil}, url("${url}")`;
   if(tag){ $('#apT').textContent=title; $('#apC').textContent=credit; tag.hidden=false; }
 }
 async function loadAPOD(){
@@ -3621,7 +3663,7 @@ async function loadAPOD(){
       im.src = u;
     }
   }catch(e){
-    $('#apod').innerHTML = '<div class="err">APOD unavailable — NASA API rate limit. Retry in an hour.</div>';
+    $('#apod').innerHTML = '<div class="err">APOD unavailable. NASA API rate limit. Retry in an hour.</div>';
   }
 }
 
@@ -3674,7 +3716,7 @@ async function loadNEO(){
           ${Math.round(+c.relative_velocity.kilometers_per_second)} km/s${day?' · '+day:''}</div></div></div>`;
     }).join('') + `<div class="muted" style="margin-top:7px">Next 7 days, nearest first. LD = lunar distances. NASA NeoWs / JPL CNEOS.</div>`
       : '<div class="muted">No close approaches logged this week.</div>';
-  }catch(e){ $('#neo').innerHTML = '<div class="err">NeoWs unavailable — NASA API rate limit. Retry in an hour.</div>'; }
+  }catch(e){ $('#neo').innerHTML = '<div class="err">NeoWs unavailable. NASA API rate limit. Retry in an hour.</div>'; }
 }
 
 /* ---------- radar strip on NOW ---------- */
@@ -3688,7 +3730,7 @@ function stripMap(){
   if(_strip){ try{_strip.remove();}catch(e){} _strip=null; _stripMarker=null; }
   if(typeof maplibregl==='undefined'){
     document.querySelector('#radarStrip').innerHTML =
-      '<div class="err" style="padding:10px">Map library unavailable — check the connection.</div>';
+      '<div class="err" style="padding:10px">Map library unavailable. Check the connection.</div>';
     return;
   }
   // NEXRAD is US-only. The radar tab says so; the NOW strip used to render an
@@ -3699,7 +3741,7 @@ function stripMap(){
   const ageEl = $('#radarAge');
   if(!inUS){
     document.querySelector('#radarStrip').innerHTML =
-      '<div class="err" style="padding:10px">NOAA NEXRAD covers the US only — no radar for this location. '
+      '<div class="err" style="padding:10px">NOAA NEXRAD covers the US only. No radar for this location. '
       + 'NASA cloud and imagery layers still work on the Radar tab.</div>';
     if(ageEl){ ageEl.textContent='NO COVERAGE'; ageEl.style.color='var(--ink-soft)'; }
     return;
@@ -3763,20 +3805,15 @@ function firstRun(){
     <div style="font-family:var(--f-display);font-weight:700;font-size:19px;line-height:1.2">
       It tells you when to go outside.</div>
     <div class="muted" style="margin-top:9px;line-height:1.65">
-      <b style="color:var(--ink)">One sentence, not a dashboard.</b> Cloud cover, darkness,
-      moon, satellite passes, aurora and meteor activity collapse into a single
-      call — with the limiting factor named. Tap it to see the breakdown.<br><br>
-      <b style="color:var(--ink)">Red mode.</b> The ◐ button in the corner cycles
-      light → dark → red. Red preserves your night vision when you're
-      standing outside, and the radar stays readable because intensity is
-      encoded by hatch density as well as color.<br><br>
-      <b style="color:var(--ink)">It runs on your device.</b> Pass predictions are
-      computed locally from orbital elements. Fetching the forecast, geocoding a
-      place, and loading radar, map and NASA imagery does send your coordinates
-      (or the map area on screen) to those providers — but there's no
-      Groundstation account or server.</div>
+      Cloud, darkness, moon, passes, aurora and meteors collapse into one call,
+      with the limiting factor named. Tap the score for the breakdown.<br><br>
+      The ◐ button cycles a red night-vision mode.<br><br>
+      Everything is computed on your device. Fetching forecast, radar and imagery
+      sends your coordinates to those providers, and nothing else.</div>
     <button class="card" style="width:100%;margin-top:12px;text-align:center;font-weight:600;
-      border-color:var(--signal);color:var(--signal)" onclick="GS.dismissFirstRun()">Start →</button>`);
+      border-color:var(--signal);color:var(--signal)" onclick="GS.useGPS();GS.dismissFirstRun()">Use my location →</button>
+    <button class="card" style="width:100%;margin-top:12px;text-align:center;font-weight:600;
+      color:var(--ink-soft)" onclick="GS.dismissFirstRun()">Start with ${esc(S.loc.name)}</button>`);
 }
 function dismissFirstRun(){ localStorage.setItem('gs.seen','1'); closeSheet(); }
 
@@ -3811,6 +3848,12 @@ async function boot(){
   loadReminders();            // normalize gs.rem into a Map before anything reads it
   GS.applyTheme(S.theme);
   firstRun();                 // before any network work — not after 25s of timeouts
+  showThemeHint();
+  setTimeout(()=>{
+    const sub=$('#goSub');
+    if(!_bootLoaded && sub && /Pulling forecast/.test(sub.textContent||''))
+      sub.textContent='Still fetching the forecast on a slow connection.';
+  }, 6000);
   $('#tmDate').value = iso(new Date(Date.now()-2*864e5));
   $('#locName').textContent = S.loc.name;
   try{ stripMap(); }catch(e){}
@@ -3837,6 +3880,7 @@ async function boot(){
   }
   try{ await loadKpTracked(); }catch(e){}
   safeRender();
+  _bootLoaded = true;
 
   // Then orbital elements, which are the slowest and most failure-prone.
   try{ await loadTlesTracked(); GS.predictPasses(); rescheduleReminders(); }catch(e){}
@@ -3871,7 +3915,7 @@ async function boot(){
 
 Object.assign(GS,{go,openLoc,findCity,useGPS,setLoc,sheet,closeSheet,toggleGo,firstRun,dismissFirstRun,stripMap,
                   renderScore,renderNow,renderSky,timeMachine,search,refresh,
-                  rescheduleReminders,recenterStrip});
+                  rescheduleReminders,recenterStrip,cycleTheme,dismissThemeHint});
 document.addEventListener('DOMContentLoaded', boot);
 })();
 </script>
