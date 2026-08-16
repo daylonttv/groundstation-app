@@ -28,7 +28,7 @@
   --f-ui:'Space Grotesk',system-ui,sans-serif;
   --f-mono:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace;
   --u:4px; --r:4px;
-  --nav-h:60px;
+  --nav-h:64px;
 }
 html[data-theme="atlas"]{
   --paper:#EDEFF0; --paper-sunk:#E2E5E7; --panel:#F7F8F9;
@@ -72,42 +72,66 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 @media(max-width:540px){#app{border:none}}
 #views{flex:1;overflow:hidden;position:relative}
 .view{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;display:none;
+      padding-top:var(--top-pad,0px);
       padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 8px)}
+#v-now{padding-top:0} /* hero runs under the floating header */
 .view.on{display:block}
 .view.nopad{padding-bottom:0}
 
 /* ---------- top bar ---------- */
-#top{display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-bottom:1px solid var(--rule);
-     background:var(--paper);position:sticky;top:0;z-index:40}
+#top{display:flex;flex-direction:column;gap:6px;padding:12px 16px 8px;
+     position:absolute;top:0;left:0;right:0;z-index:40;
+     background:transparent;border-bottom:1px solid transparent;
+     transition:background .18s ease,border-color .18s ease,backdrop-filter .18s ease}
+#top.solid{background:var(--paper);border-bottom-color:var(--rule)}
+#top:not(.solid) #brand{text-shadow:0 2px 22px rgba(0,0,0,.7)}
+#top:not(.solid) #telemetry{text-shadow:0 1px 10px rgba(0,0,0,.9)}
 #topRow{display:flex;align-items:center;gap:8px}
-#telemetry{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--f-mono);font-size:9px;
-     letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-#telemetry b{color:var(--ink-soft);font-weight:600}
-#brand{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+#telemetry{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--f-mono);font-size:10px;font-weight:600;
+     letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+#telemetry b{color:var(--ink);font-weight:600}
+#brand{font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:.16em;text-transform:uppercase}
 #brand span{color:var(--signal)}
-#loc{flex:1;text-align:right;font-size:12px;color:var(--ink-soft);display:flex;align-items:center;
-     justify-content:flex-end;gap:5px;cursor:pointer}
+/* mockup: location is a glass pill with a glowing pin dot */
+#loc{margin-left:auto;font-family:var(--f-mono);font-size:11px;font-weight:600;color:var(--ink);
+     display:flex;align-items:center;gap:6px;cursor:pointer;
+     background:color-mix(in srgb,var(--ink) 14%,transparent);
+     border:1px solid color-mix(in srgb,var(--ink) 20%,transparent);
+     padding:8px 10px;border-radius:20px;backdrop-filter:blur(6px)}
 #loc b{color:var(--ink);font-weight:600}
+#loc .pin{width:6px;height:6px;border-radius:50%;background:var(--go);box-shadow:0 0 9px var(--go);flex:none}
 .tbtn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:var(--r);
       font-size:13px;background:var(--panel)}
 .tbtn.act{border-color:var(--signal);color:var(--signal)}
 
 /* ---------- bottom nav ---------- */
-#nav{height:calc(var(--nav-h) + 10px);display:grid;grid-template-columns:repeat(5,1fr);
+#nav{height:calc(var(--nav-h) + 12px);display:grid;grid-template-columns:repeat(5,1fr);
      border-top:1px solid var(--rule);
      background:linear-gradient(0deg,color-mix(in srgb,var(--paper) 98%,transparent),color-mix(in srgb,var(--paper) 72%,transparent));
      backdrop-filter:blur(12px);
      padding-bottom:env(safe-area-inset-bottom,0px);z-index:50}
-#nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-            color:var(--ink-soft);font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+#nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+            font-family:var(--f-mono);color:var(--ink-soft);font-size:10px;letter-spacing:.06em;
+            text-transform:uppercase;font-weight:600;
             border-top:2px solid transparent;margin-top:-1px}
 #nav button.on{color:var(--signal);border-top-color:transparent}
 #nav button.on svg{filter:drop-shadow(0 0 7px color-mix(in srgb,var(--signal) 60%,transparent))}
-#nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#nav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- primitives ---------- */
 .sect{padding:8px 16px 16px;border-bottom:none;background:var(--panel)}
-#v-now .sect:first-of-type{border-radius:2px 2px 0 0;box-shadow:0 -14px 44px color-mix(in srgb,var(--paper) 55%,transparent);padding-top:14px}
+/* NOW sheet: the mockup's single raised surface. Sections inside go transparent;
+   the wrapper carries the gradient, top radius, shadow, wavy ridge and grip. */
+#nowSheet{position:relative;margin-top:28px;border-radius:2px 2px 0 0;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 86%,transparent),color-mix(in srgb,var(--paper) 96%,transparent));
+  backdrop-filter:blur(20px);
+  box-shadow:0 -14px 44px rgba(0,0,0,.5);padding:2px 0 10px}
+#nowSheet::before{content:"";position:absolute;left:0;right:0;top:-46px;height:48px;z-index:2;pointer-events:none;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='390' height='48' preserveAspectRatio='none'><path d='M0 48 L0 30 Q30 24 60 28 T120 22 Q150 12 165 20 L172 8 L178 20 Q200 16 230 26 T300 20 Q330 14 360 24 T390 26 L390 48 Z' fill='%230C0917'/></svg>") no-repeat bottom center/cover}
+#nowSheet .grip{width:40px;height:4px;border-radius:3px;background:color-mix(in srgb,var(--ink) 22%,transparent);
+  margin:6px auto 2px;position:relative;z-index:3}
+#nowSheet .sect{background:transparent}
+#nowSheet .lbl{margin:20px 6px 10px}
 /* section headers use the redesign kicker voice: small uppercase mono, letterspaced */
 .lbl{font-family:var(--f-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
      color:var(--ink-faint);font-weight:600;margin:10px 0 10px;display:flex;justify-content:space-between;align-items:center}
@@ -116,7 +140,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .row:last-child{border-bottom:none}
 .row .k{color:var(--ink-soft);font-size:12px}
 .row .v{font-family:var(--f-mono);font-weight:500;font-size:13px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .chip{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-mono);font-size:11px;font-weight:600;
       padding:2px 6px;border:1px solid var(--rule);border-radius:2px;color:var(--ink-soft)}
@@ -124,6 +148,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .chip.sig{color:var(--signal);border-color:var(--signal)}
 .chip.alert{color:var(--alert);border-color:var(--alert)}
 .muted{color:var(--ink-soft);font-size:12px}
+.hint{font:600 9px/1 var(--f-mono);letter-spacing:.14em;color:var(--ink-faint);opacity:.7;text-transform:uppercase}
 .err{border-left:2px solid var(--alert);padding-left:8px;color:var(--ink-soft);font-size:12px}
 
 /* ---------- NOW hero: persona + big score readout ---------- */
@@ -135,7 +160,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
   -webkit-mask-image:linear-gradient(180deg,#000 70%,transparent 100%);
   mask-image:linear-gradient(180deg,#000 70%,transparent 100%)}
 /* starfield + scrim complete the mockup's layer stack */
-#nowStars{position:absolute;left:0;right:0;top:0;height:38%;z-index:0;pointer-events:none}
+#nowStars{position:absolute;left:0;right:0;top:0;height:45%;z-index:0;pointer-events:none}
 #nowStars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.7;animation:tw 3.8s ease-in-out infinite}
 #nowStars i:nth-child(3n){width:1px;height:1px;opacity:.4}
 #nowStars i:nth-child(2n){animation-delay:1.1s}
@@ -148,22 +173,27 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 #v-now>*{position:relative;z-index:1}
 #v-now>#nowApod,#v-now>#nowStars,#v-now>#nowScrim{position:absolute;z-index:0}
 #apodTag[hidden]{display:none!important} /* author display:flex would otherwise override the hidden attr */
-#apodTag{margin:12px 16px 0;display:flex;align-items:center;gap:10px;
-  background:color-mix(in srgb,var(--paper) 42%,transparent);
+#apodTag{margin:14px 22px 0;display:flex;align-items:center;gap:10px;
+  background:color-mix(in srgb,var(--paper) 55%,transparent);
   border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);
-  border-radius:14px;padding:8px 11px;backdrop-filter:blur(10px)}
+  border-radius:14px;padding:8px 10px;backdrop-filter:blur(10px)}
 #apodTag .apk{font-family:var(--f-mono);font-size:8px;letter-spacing:.16em;color:var(--signal)}
 #apodTag h5{font-size:12.5px;font-weight:600;margin-top:2px}
 #apodTag s{display:block;font-family:var(--f-mono);font-size:10px;color:var(--ink-soft);text-decoration:none;margin-top:3px}
-#nowHero{padding:0 12px 6px;text-align:center}
+#nowHero{padding:0 26px 6px;text-align:center;position:relative}
+/* mockup .readout::before — soft dark radial so the readout floats on the image */
+#nowHero::before{content:"";position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);
+  width:340px;height:300px;z-index:-1;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--paper) 50%,transparent),transparent 78%)}
 #go{padding:0 0 14px;cursor:pointer;position:relative}
 #goHead{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.22;letter-spacing:-.012em;
-        max-width:17ch;margin:6px auto 0;text-shadow:0 2px 18px color-mix(in srgb,var(--paper) 80%,transparent)}
-#goSub{margin:8px auto 0;font-size:13.5px;color:var(--ink-soft);line-height:1.55;max-width:32ch}
+        max-width:17ch;margin:6px auto 8px;text-shadow:0 2px 18px rgba(0,0,0,.8)}
+#goHead em{font-style:normal;color:var(--state-vc,var(--signal))}
+#goSub{margin:0 auto;font-size:13.5px;color:var(--ink-soft);line-height:1.55;max-width:32ch;text-shadow:0 1px 14px rgba(0,0,0,.85)}
 #goMeta{margin-top:11px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
-.score{position:relative;margin:2px 0 0}
-.score s{font:600 14px/1 var(--f-mono);color:var(--ink-soft);text-decoration:none;letter-spacing:.08em}
-#goNum{font-family:var(--f-mono);font-weight:200;font-size:96px;line-height:.9;letter-spacing:-.04em;
+.score{position:relative;margin:8px 0 4px}
+.score s{font:600 15px/1 var(--f-mono);color:var(--ink-soft);text-decoration:none;letter-spacing:.08em}
+#goNum{font-family:var(--f-mono);font-weight:200;font-size:100px;line-height:.9;letter-spacing:-.04em;
        font-variant-numeric:tabular-nums;color:var(--ink);
        text-shadow:0 4px 40px color-mix(in srgb,var(--paper) 80%,transparent)}
 /* mockup: the big number stays ink; the verdict phrase carries the state color */
@@ -186,8 +216,8 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 .scene .spark{transform-box:fill-box;transform-origin:center}
 .scene .hand{transform-box:fill-box;transform-origin:top left}
 .scene .lookup,.scene .spark,.scene .shrug,.scene .cloud,.scene .reader,.scene .glow{opacity:0}
-.persona .word{position:absolute;right:54%;white-space:nowrap;font:700 26px/1 var(--f-ui);
-  letter-spacing:.01em;color:var(--state-col);opacity:0}
+.persona .word{position:absolute;right:54%;white-space:nowrap;font:700 27px/1 var(--f-ui);
+  letter-spacing:.01em;color:var(--state-col);opacity:0;text-shadow:0 2px 16px rgba(0,0,0,.8)}
 .persona.play .word{animation:wordfade var(--wdur) ease-out both}
 @keyframes wordfade{0%{opacity:0;transform:translateX(-8px)}22%{opacity:.96}66%{opacity:.96}100%{opacity:0;transform:translateX(-30px)}}
 .persona .streaks{position:absolute;right:49%;display:none;flex-direction:column;gap:6px;opacity:0}
@@ -224,7 +254,7 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 @keyframes ng-glow{0%{opacity:0}100%{opacity:.5}}
 
 /* ---------- NOW cards: window / passes / cells ---------- */
-.soon{position:relative;border-radius:14px;padding:16px;overflow:hidden;min-height:52px;
+.soon{position:relative;border-radius:20px;padding:16px;overflow:hidden;min-height:52px;
   background:linear-gradient(120deg,color-mix(in srgb,var(--signal) 16%,transparent),color-mix(in srgb,var(--station) 14%,transparent));
   border:1px solid color-mix(in srgb,var(--signal) 32%,transparent)}
 .soon .shim{position:absolute;inset:0;background:linear-gradient(100deg,transparent 32%,color-mix(in srgb,var(--ink) 12%,transparent) 50%,transparent 68%);
@@ -253,9 +283,9 @@ button{font-family:inherit;color:inherit;background:none;border:none;cursor:poin
 /* ---------- map surfaces ---------- */
 .mapwrap{position:absolute;inset:0}
 #radarMap,#cesium{position:absolute;inset:0}
-#radarStrip{height:118px;position:relative;border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);
+#radarStrip{height:118px;position:relative;border-radius:20px;overflow:hidden;border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);
             border-radius:14px;overflow:hidden;background:var(--paper-sunk)}
-#radarStrip .tag{position:absolute;left:6px;top:6px;z-index:5;background:var(--paper);border:1px solid var(--rule);
+#radarStrip .tag{position:absolute;left:12px;bottom:11px;top:auto;z-index:5;background:var(--paper);border:1px solid var(--rule);
                  font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 5px;border-radius:2px;font-weight:600}
 .overlay{position:absolute;z-index:10;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r)}
 #radarCtl{left:8px;right:8px;bottom:8px;padding:8px}
@@ -371,7 +401,7 @@ html[data-theme="red"] #cesium::after{content:"";position:absolute;inset:0;point
   <div id="top">
     <div id="topRow">
       <div id="brand">GROUND<span>STATION</span></div>
-      <div id="loc" onclick="GS.openLoc()" role="button" tabindex="0" aria-label="Change location"><b id="locName">—</b> ▾</div>
+      <div id="loc" onclick="GS.openLoc()" role="button" tabindex="0" aria-label="Change location"><span class="pin"></span><b id="locName">—</b> ▾</div>
       <button class="tbtn" id="themeBtn" onclick="GS.cycleTheme()" title="Theme" aria-label="Change theme">◐</button>
     </div>
     <div id="telemetry"></div>
@@ -406,12 +436,14 @@ html[data-theme="red"] #cesium::after{content:"";position:absolute;inset:0;point
           <div id="goSub">Pulling forecast, orbital elements and space weather.</div>
           <div id="goMeta">
             <span class="chip" id="goWhen">—</span>
-            <span class="muted" style="font-size:11px">tap for breakdown</span>
+            <span class="hint">TAP FOR BREAKDOWN</span>
           </div>
           <div id="goExpand"></div>
         </div>
       </div>
 
+      <div id="nowSheet">
+      <div class="grip"></div>
       <div class="sect">
         <div class="lbl">Tonight's window</div>
         <div class="soon" id="nowWindow"><div class="shim"></div></div>
@@ -443,6 +475,7 @@ html[data-theme="red"] #cesium::after{content:"";position:absolute;inset:0;point
         <img id="epicImg" alt="Full-disc Earth from DSCOVR/EPIC at L1">
         <div class="muted" id="epicCap" style="margin-top:7px"></div>
       </div>
+      </div><!-- /nowSheet -->
     </section>
 
     <!-- ============ RADAR ============ -->
@@ -2657,11 +2690,22 @@ function tonight(){                                                     // {dusk
 }
 
 /* ---------- navigation ---------- */
+// Floating header: transparent over the NOW hero, quick-fades to solid once
+// scrolled (or on any other tab). Also publishes the header height so the
+// other tabs pad their content below it.
+function syncTop(){
+  const t = document.getElementById('top'); if(!t) return;
+  const vn = document.getElementById('v-now');
+  const solid = S.view!=='now' || (vn && vn.scrollTop>24);
+  t.classList.toggle('solid', !!solid);
+  document.documentElement.style.setProperty('--top-pad', t.offsetHeight+'px');
+}
 function go(v){
   const prev = S.view;
   S.view = v;
   document.querySelectorAll('.view').forEach(n=>n.classList.toggle('on', n.id==='v-'+v));
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.t===v));
+  try{ syncTop(); }catch(e){}
   // Leaving the Globe: stop the 1Hz selected-sat ticker so it doesn't run in the background.
   if(prev==='globe' && v!=='globe' && GS.stopGlobeTicker){ try{ GS.stopGlobeTicker(); }catch(e){} }
   if(v==='radar'){ GS.initRadar(); setTimeout(()=>window._map && window._map.resize(),60); }
@@ -2759,6 +2803,9 @@ function renderPersona(sc){
   const st = personaState(sc.score);
   p.className = 'persona st-'+st + (st==='go' ? ' with-streaks' : '');
   const w = $('#pWord'); if(w) w.textContent = P_WORD[st];
+  const hero = $('#nowHero');
+  if(hero) hero.style.setProperty('--state-vc',
+    st==='go' ? 'var(--go)' : st==='fair' ? 'var(--caution)' : 'var(--alert)');
   const sv = $('#pScene'); if(sv) sv.innerHTML = SCENES[st];
   void p.offsetWidth;                    // reflow so the timeline replays
   p.classList.add('play');
@@ -2781,6 +2828,7 @@ function renderTelemetry(){
     if(mn && mn.name) bits.push(`<span>☾ <b>${mn.name.toUpperCase()} ${Math.round(mn.frac*100)}%</b></span>`);
   }catch(e){}
   t.innerHTML = bits.join('');
+  try{ syncTop(); }catch(e){}
 }
 
 /* ---------- GO SCORE render ---------- */
@@ -2790,7 +2838,10 @@ function toggleGo(){
 }
 function renderScore(){
   const s = GS.computeScore(); if(!s) return;
-  $('#goHead').textContent = s.head;
+  { // mockup: the verdict's key phrase carries the state color via <em>
+    const h = esc(s.head||'');
+    $('#goHead').innerHTML = h.replace(/(\d{1,2}:\d{2})/, '<em>$1</em>');
+  }
   $('#goSub').textContent  = s.sub;
   const n = $('#goNum');
   n.textContent = s.score; n.className = 'mono ' + (s.score>=75?'hi':s.score<50?'lo':'');
@@ -2971,13 +3022,13 @@ function renderNowChart(){
     wrap.id = 'nowChartWrap';
     // Borderless overlay per the mockup: the chart floats on the hero backdrop
     // and the readout tucks up underneath it.
-    wrap.style.cssText = 'margin:2px 0 -42px;position:relative;z-index:1;pointer-events:none;'
+    wrap.style.cssText = 'margin:2px 0 -46px;position:relative;z-index:1;pointer-events:none;'
       + 'filter:drop-shadow(0 1px 7px color-mix(in srgb,var(--paper) 90%,transparent))';
     const hero = view.querySelector('#nowHero');
     view.insertBefore(wrap, hero || view.firstChild);
   }
   wrap.style.display = '';
-  const W=360, H=150;
+  const W=360, H=196;
   const X = az => az/360*W, Y = alt => (90-Math.max(0,Math.min(90,alt)))/90*(H-14)+4;
   let g = '';
   // horizon + cardinal ticks
@@ -3066,8 +3117,10 @@ function renderRadarRead(){
   if(!n){
     n = document.createElement('div');
     n.id = 'radarRead';
-    n.style.cssText = 'font:500 11px/1.4 var(--f-ui);margin:0 0 7px;color:var(--ink-soft)';
-    strip.parentNode.insertBefore(n, strip);
+    // mockup .read: inside the radar card, top-right, over the map
+    n.style.cssText = 'position:absolute;right:13px;top:13px;z-index:5;text-align:right;max-width:62%;'
+      + 'font:500 11px/1.35 var(--f-ui);color:var(--ink);text-shadow:0 1px 8px rgba(0,0,0,.85);pointer-events:none';
+    strip.appendChild(n);
   }
   const nc = GS.cloudNowcast ? GS.cloudNowcast() : null;
   if(!nc){ n.textContent = 'Cloud trend — no data'; return; }
@@ -3791,6 +3844,10 @@ async function boot(){
   GS.renderTleAge();
 
   loadEPIC(); timeMachine(); loadAPOD(); loadOSDR(); loadNEO();
+  { const vn=document.getElementById('v-now');
+    if(vn) vn.addEventListener('scroll', syncTop, {passive:true});
+    window.addEventListener('resize', syncTop);
+    syncTop(); }
 
   // #19: on return-to-foreground, refresh stale feeds (weather/Kp >20m, TLE >6h)
   // then re-render. The 60s interval below is for countdown/score display only.
