@@ -2295,7 +2295,9 @@ Object.assign(GS,{initRadar,setBasemap,_setBasemap:setBasemap,scrub,play,setRada
 const {S,$,el,pad,hhmm,iso,compass,RE} = GS;
 
 let viewer=null, ents=[], selected=null, tickHandle=null, _paintSel=null, orbitEnt=null,
-    locEnt=null, userTracking=false, cesiumPromise=null;
+    locEnt=null, userTracking=false, cesiumPromise=null, webglPreflight=null,
+    degraded=false, degradedMap=null, degradedTick=null, degradedSat=null,
+    degradedTrackName='';
 
 /* ---- R9: batched propagation ----
    One 1Hz timer runs SGP4 once per satellite and caches the Cartesian3;
@@ -2310,10 +2312,12 @@ function propagateAll(){
     const g = geo(e._sat.rec, d);
     if(g) posCache.set(e, Cesium.Cartesian3.fromDegrees(g.lon,g.lat,g.alt*1000));
   }
+  requestGlobeRender();
 }
 function pauseGlobeBatch(){ if(batchHandle){ clearInterval(batchHandle); batchHandle=null; } }
 function resumeGlobe(){                // idempotent; safe before init / while hidden
   batchWanted = true;
+  if(degraded){ startDegradedTicker(); return; }
   startSelTicker();                    // restart the satInfo readout as well
   if(!viewer || batchHandle || document.hidden) return;
   propagateAll();                      // fill immediately, don't wait a second
@@ -2322,10 +2326,35 @@ function resumeGlobe(){                // idempotent; safe before init / while h
 const G4326 = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/';
 const CESIUM_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/cesium/1.133.1/';
 
+function requestGlobeRender(){
+  if(viewer && viewer.scene && viewer.scene.requestRender){
+    try{ viewer.scene.requestRender(); }catch(e){}
+  }
+}
+function webglReady(){
+  if(webglPreflight!==null) return webglPreflight;
+  try{
+    const c = document.createElement('canvas');
+    const opt = {failIfMajorPerformanceCaveat:true};
+    const gl = c.getContext('webgl',opt) || c.getContext('experimental-webgl',opt);
+    webglPreflight = !!gl;
+    if(gl){
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if(ext) ext.loseContext();
+    }
+  }catch(e){ webglPreflight = false; }
+  return webglPreflight;
+}
+
 /* ---- #8 true lazy-load ---- */
 function ensureCesium(){
   if(window.Cesium) return Promise.resolve();
   if(cesiumPromise) return cesiumPromise;         // one injection, shared promise
+  if(!webglReady()){
+    degraded = true;
+    renderDegradedGlobe();
+    return Promise.reject(new Error('WebGL preflight failed'));
+  }
   window.CESIUM_BASE_URL = CESIUM_BASE;
   cesiumPromise = new Promise((resolve,reject)=>{
     const link = document.createElement('link');
@@ -2353,8 +2382,133 @@ function overlay(html, cls){
 }
 function clearOverlay(){ const o=document.getElementById('cesiumLoading'); if(o) o.remove(); }
 function globeError(msg){
-  overlay(msg,'err');
-  const info=$('#satInfo'); if(info) info.innerHTML=`<div class="err">${msg}</div>`;
+  degraded = true;
+  renderDegradedGlobe(msg);
+}
+
+function globeControls(show){
+  const layers = $('#globeLayers'), body = $('#bodySel');
+  [layers&&layers.closest('.overlay'), body&&body.closest('.overlay')].forEach(n=>{
+    if(n) n.style.display = show ? '' : 'none';
+  });
+}
+function degradedTarget(){
+  if(degradedSat) return degradedSat;
+  const best = GS.getBestVisiblePass ? GS.getBestVisiblePass({horizonHours:24,minElevation:10,requireRecommendable:false}) : null;
+  let t = best && S.tles.find(x=>x.name===best.name);
+  if(!t) t = S.tles.find(x=>/ISS/i.test(x.name)) || S.tles[0];
+  if(!t) return null;
+  let rec; try{ rec = satellite.twoline2satrec(t.l1,t.l2); }catch(e){ return null; }
+  degradedSat = {rec,name:t.name,l1:t.l1};
+  return degradedSat;
+}
+function fallbackTrack(sat){
+  const coords=[], start=Date.now();
+  for(let i=0;i<=100;i++){
+    const g = geo(sat.rec, new Date(start+i*60000));
+    if(g) coords.push([((g.lon+540)%360)-180,g.lat]);
+  }
+  return coords;
+}
+function paintFallbackInfo(){
+  const info = $('#satInfo'), sat = degradedTarget();
+  if(!info) return;
+  if(!sat){
+    info.innerHTML = '<div class="err">Orbital elements unavailable. Tracking card will populate when TLEs load.</div>';
+    return;
+  }
+  const d = new Date(), g = geo(sat.rec,d);
+  if(!g){ info.innerHTML = '<div class="err">Propagation failed for this object.</div>'; return; }
+  if(degradedMap && degradedTrackName!==sat.name){
+    try{
+      const tr = degradedMap.getSource('track');
+      if(tr){
+        tr.setData({type:'Feature',geometry:{type:'LineString',coordinates:fallbackTrack(sat)},properties:{}});
+        degradedTrackName = sat.name;
+      }
+    }catch(e){}
+  }
+  const age = ageLabel(sat.l1);
+  const next = S.passes.find(p=>p.name===sat.name && p.start>d);
+  info.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <div style="font-family:var(--f-display);font-weight:700;font-size:14px">${GS.esc(sat.name)}</div>
+      <span class="chip sig">2D TRACK</span>
+    </div>
+    <div class="grid3" style="margin-top:8px">
+      <div><div class="muted" style="font-size:10px">ALT</div><div class="mono">${Math.round(g.alt)} km</div></div>
+      <div><div class="muted" style="font-size:10px">SPEED</div><div class="mono">${g.vel.toFixed(2)} km/s</div></div>
+      <div><div class="muted" style="font-size:10px">SUB-POINT</div><div class="mono" style="font-size:11px">${g.lat.toFixed(1)}Â° ${g.lon.toFixed(1)}Â°</div></div>
+    </div>
+    <div class="row" style="margin-top:7px"><span class="k">Element age</span>
+      <span class="v mono">${age}</span></div>
+    <div class="row"><span class="k">Next visible pass</span>
+      <span class="v">${next?`${GS.hhmmLoc?GS.hhmmLoc(next.start):hhmm(next.start)} Â· ${Math.round(next.max)}Â°`:'none in 5 days'}</span></div>`;
+}
+function startDegradedTicker(){
+  if(degradedTick || document.hidden) return;
+  paintFallbackInfo();
+  degradedTick = setInterval(paintFallbackInfo,1000);
+}
+function stopDegradedTicker(){
+  if(degradedTick){ clearInterval(degradedTick); degradedTick=null; }
+}
+function renderDegradedGlobe(reason){
+  degraded = true;
+  clearOverlay();
+  globeControls(false);
+  stopDegradedTicker();
+  const host = $('#cesium'); if(!host) return;
+  host.innerHTML = `<div style="position:absolute;inset:0;background:var(--paper-sunk)">
+    <div id="globeFallbackMap" style="position:absolute;inset:0"></div>
+    <div class="overlay" style="left:8px;top:8px;right:8px;padding:10px;max-width:360px">
+      <div style="font-family:var(--f-display);font-weight:700;font-size:15px">3D unavailable on this device.</div>
+      <div class="muted" style="margin-top:4px;line-height:1.45">Showing a 2D ground track from local orbital propagation.</div>
+      ${reason?`<div class="err" style="margin-top:8px">${GS.esc(reason)}</div>`:''}
+    </div>
+  </div>`;
+  degradedTrackName = '';
+  paintFallbackInfo();
+  startDegradedTicker();
+  if(typeof maplibregl==='undefined') return;
+  try{
+    if(degradedMap){ try{ degradedMap.remove(); }catch(e){} degradedMap=null; }
+    const css = getComputedStyle(document.documentElement);
+    const sunk = (css.getPropertyValue('--paper-sunk')||'').trim() || '#0d1720';
+    const sig = (css.getPropertyValue('--signal')||'').trim() || '#E8590C';
+    const sat = degradedTarget(), coords = sat ? fallbackTrack(sat) : [];
+    degradedMap = new maplibregl.Map({
+      container:'globeFallbackMap', attributionControl:false, interactive:true,
+      center:[S.loc.lon,S.loc.lat], zoom:2.2,
+      style:{version:8,sources:{
+        bm:{type:'raster',tiles:['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg'],tileSize:256,maxzoom:8},
+        track:{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:coords},properties:{}}},
+        loc:{type:'geojson',data:{type:'Feature',geometry:{type:'Point',coordinates:[S.loc.lon,S.loc.lat]},properties:{}}}
+      },layers:[
+        {id:'bg',type:'background',paint:{'background-color':sunk}},
+        {id:'bm',type:'raster',source:'bm',paint:{'raster-opacity':.72,'raster-brightness-min':.35}},
+        {id:'track',type:'line',source:'track',paint:{'line-color':sig,'line-width':2,'line-opacity':.9}},
+        {id:'loc',type:'circle',source:'loc',paint:{'circle-radius':5,'circle-color':sig,'circle-stroke-color':'#fff','circle-stroke-width':1.5}}
+      ]}
+    });
+  }catch(e){
+    const m=$('#globeFallbackMap'); if(m) m.innerHTML='';
+  }
+}
+function refreshDegradedMap(){
+  if(!degraded) return;
+  paintFallbackInfo();
+  if(!degradedMap) return;
+  try{
+    degradedMap.jumpTo({center:[S.loc.lon,S.loc.lat]});
+    const loc = degradedMap.getSource('loc');
+    if(loc) loc.setData({type:'Feature',geometry:{type:'Point',coordinates:[S.loc.lon,S.loc.lat]},properties:{}});
+    const sat = degradedTarget(), tr = degradedMap.getSource('track');
+    if(tr && sat){
+      tr.setData({type:'Feature',geometry:{type:'LineString',coordinates:fallbackTrack(sat)},properties:{}});
+      degradedTrackName = sat.name;
+    }
+  }catch(e){}
 }
 
 /* ---- #3-globe: correct TileMatrixSet + per-layer maximumLevel ---- */
@@ -2391,13 +2545,15 @@ function buildEarth(){
   viewer.scene.globe.enableLighting = true;
   // re-apply any date-stamped overlays that were left on before a body switch
   ['clouds','truecolor'].forEach(id=>{ const L=GLAYERS.find(x=>x.id===id); if(L&&L.on) globeLayer(L); });
+  requestGlobeRender();
 }
 
 async function initGlobe(){
   if(viewer) return;
+  if(degraded){ renderDegradedGlobe(); return; }
   overlay('<span>Loading 3D globe…</span>');
   try{ await ensureCesium(); }
-  catch(e){ globeError('3D engine failed to load. Check the connection.'); return; }
+  catch(e){ if(!degraded) globeError('3D engine failed to load. Check the connection.'); return; }
   if(typeof Cesium==='undefined'){ globeError('3D engine failed to load. Check the connection.'); return; }
 
   try{
@@ -2405,20 +2561,31 @@ async function initGlobe(){
     viewer = new Cesium.Viewer('cesium',{
       baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false,
       navigationHelpButton:false, animation:false, timeline:false, fullscreenButton:false,
-      infoBox:false, selectionIndicator:false, shouldAnimate:true,
+      infoBox:false, selectionIndicator:false, vrButton:false,
+      navigationInstructionsInitiallyVisible:false, shouldAnimate:false,
+      requestRenderMode:true, maximumRenderTimeChange:Infinity,
+      useBrowserRecommendedResolution:true, scene3DOnly:true, shadows:false,
+      msaaSamples:1,
       terrainProvider:new Cesium.EllipsoidTerrainProvider(),   // §see header
       baseLayer:false                                          // built explicitly below
     });
   }catch(e){ globeError('3D globe could not start on this device.'); return; }
   clearOverlay();
+  globeControls(true);
 
   const sc = viewer.scene;
   buildEarth();                                   // base + city lights, tracked handles
-  sc.globe.showGroundAtmosphere = true;
-  sc.skyAtmosphere.show = true;
+  viewer.resolutionScale = Math.min(1, 0.75/window.devicePixelRatio);
+  sc.globe.showGroundAtmosphere = false;
+  sc.skyAtmosphere.show = false;
   sc.fog.enabled = false;
+  sc.globe.maximumScreenSpaceError = 4;
+  sc.globe.tileCacheSize = 32;
+  sc.globe.preloadAncestors = false;
+  sc.globe.preloadSiblings = false;
   sc.globe.baseColor = Cesium.Color.fromCssColorString('#06121f');
   viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(S.loc.lon,S.loc.lat,26000000)});
+  requestGlobeRender();
 
   // your location — tracked by handle for #9 recenter
   locEnt = viewer.entities.add({
@@ -2436,6 +2603,7 @@ async function initGlobe(){
   addSats();
   resumeGlobe();                                  // R9: start the 1Hz batch propagator
   renderGlobeToggles();
+  requestGlobeRender();
 
   const h = new Cesium.ScreenSpaceEventHandler(sc.canvas);
   h.setInputAction(m=>{
@@ -2452,6 +2620,7 @@ function addSats(){
        satellites will appear as soon as a feed returns. Nothing stale is
        being shown — a two-week-old element set puts the ISS visibly in
        the wrong place.</div>`;
+    requestGlobeRender();
     return;
   }
   // Mobile render budget. Everything is propagated locally, but 8,000
@@ -2486,6 +2655,7 @@ function addSats(){
   });
   const iss = ents.find(e=>e._sat.name.toUpperCase().includes('ISS'));
   if(iss) select(iss); else if(ents[0]) select(ents[0]);   // auto-pick, not user-tracked
+  requestGlobeRender();
 }
 
 function geo(rec,d){
@@ -2513,6 +2683,7 @@ function select(e, user){
   selected = e;
   if(user) userTracking = true;      // #9: don't let a recenter yank the camera off a tracked sat
   drawOrbit(e._sat.rec);
+  requestGlobeRender();
   clearInterval(tickHandle);
   const age = ageLabel(e._sat.l1);
   const paint = ()=>{
@@ -2533,6 +2704,7 @@ function select(e, user){
         <span class="v mono">${age}</span></div>
       <div class="row"><span class="k">Next visible pass</span>
         <span class="v">${next?`${GS.hhmmLoc?GS.hhmmLoc(next.start):hhmm(next.start)} · ${Math.round(next.max)}°`:'none in 5 days'}</span></div>`;
+    requestGlobeRender();
   };
   _paintSel = paint;                   // module-level so resumeGlobe() can restart it
   paint(); tickHandle = setInterval(paint,1000);
@@ -2549,6 +2721,7 @@ function startSelTicker(){
 /* ---- #20: stop the 1Hz repaint when the Globe tab is not showing ---- */
 function stopGlobeTicker(){
   if(tickHandle){ clearInterval(tickHandle); tickHandle=null; }
+  stopDegradedTicker();
   batchWanted=false; pauseGlobeBatch();   // R9: leaving the globe view stands the batch down too
 }
 
@@ -2564,6 +2737,7 @@ function drawOrbit(rec){
   orbitEnt = viewer.entities.add({polyline:{positions:pts, width:1.4, arcType:Cesium.ArcType.NONE,
     material:new Cesium.PolylineGlowMaterialProperty({
       glowPower:.18, color:Cesium.Color.fromCssColorString('#E8590C').withAlpha(.75)})}});
+  requestGlobeRender();
 }
 
 const GLAYERS = [
@@ -2582,8 +2756,8 @@ function renderGlobeToggles(){
 }
 function globeLayer(L){
   const y = iso(new Date(Date.now()-864e5));
-  if(L.id==='orbits'){ if(orbitEnt) orbitEnt.show = L.on; return; }
-  if(L.id==='lights'){ if(extra.lights) extra.lights.show = L.on; return; }   // #17: tracked handle
+  if(L.id==='orbits'){ if(orbitEnt) orbitEnt.show = L.on; requestGlobeRender(); return; }
+  if(L.id==='lights'){ if(extra.lights) extra.lights.show = L.on; requestGlobeRender(); return; }   // #17: tracked handle
   if(L.on && !extra[L.id]){
     let lay;
     if(L.id==='clouds'){
@@ -2598,6 +2772,7 @@ function globeLayer(L){
     }
     extra[L.id]=lay;
   } else if(extra[L.id]) extra[L.id].show = L.on;
+  requestGlobeRender();
 }
 
 function setBody(b){
@@ -2609,12 +2784,14 @@ function setBody(b){
     buildEarth();                                  // keep something on-screen
     ents.forEach(e=>e.show=true); if(orbitEnt) orbitEnt.show=true;
     $('#satInfo').innerHTML = `<div class="err">${b.charAt(0).toUpperCase()+b.slice(1)} imagery unavailable.</div>`;
+    requestGlobeRender();
     return;
   }
   if(b==='earth'){
     buildEarth();                                  // #17: rebuild base+lights, reset handles
     ents.forEach(e=>e.show=true); if(orbitEnt) orbitEnt.show=true;
     $('#satInfo').innerHTML = '<div class="muted">Tap a satellite to track it.</div>';
+    requestGlobeRender();
   } else {
     viewer.imageryLayers.removeAll();
     for(const k in extra) delete extra[k];         // handles destroyed with the layers
@@ -2627,17 +2804,20 @@ function setBody(b){
     ents.forEach(e=>e.show=false); if(orbitEnt) orbitEnt.show=false;
     userTracking = false;                          // no Earth sat to hold the camera on
     $('#satInfo').innerHTML = `<div class="muted">Viewing <b>${b[0].toUpperCase()+b.slice(1)}</b>. NASA Trek global mosaic.</div>`;
+    requestGlobeRender();
   }
 }
 
 /* ---- #9-globe: move the location entity + camera on location change ---- */
 function recenterGlobe(){
+  if(degraded){ refreshDegradedMap(); return; }
   if(!viewer || !locEnt) return;
   const L = S.loc;
   locEnt.position = Cesium.Cartesian3.fromDegrees(L.lon,L.lat);
   if(locEnt.label) locEnt.label.text = L.name.split(',')[0];
   if(!userTracking)                                // don't fight the user tracking a sat
     viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(L.lon,L.lat,26000000)});
+  requestGlobeRender();
 }
 GS.onLocationChanged(()=>recenterGlobe());
 
@@ -2647,11 +2827,12 @@ GS.onLocationChanged(()=>recenterGlobe());
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
     if(tickHandle){ clearInterval(tickHandle); tickHandle=null; }
+    stopDegradedTicker();
     pauseGlobeBatch();
   } else if(batchWanted) resumeGlobe();
 });
 
-Object.assign(GS,{initGlobe,setBody,globeReady:()=>!!viewer,ensureCesium,stopGlobeTicker,recenterGlobe,pauseGlobeBatch,resumeGlobe});
+Object.assign(GS,{initGlobe,setBody,globeReady:()=>!!viewer||degraded,ensureCesium,stopGlobeTicker,recenterGlobe,pauseGlobeBatch,resumeGlobe});
 })();
 </script>
 <script>
