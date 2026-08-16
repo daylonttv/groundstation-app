@@ -378,6 +378,10 @@ input[type=text],input[type=date],select{width:100%;padding:8px;background:var(-
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--signal);outline-offset:1px}
 #loc:focus-visible,#go:focus-visible,.persona:focus-visible,.tog:focus-visible,.bell:focus-visible,
 .seg button:focus-visible,#nav button:focus-visible{outline:2px solid var(--signal);outline-offset:1px;border-radius:2px}
+/* Atlas signal orange is only 3.1:1 on paper; station blue preserves focus contrast margin. */
+html[data-theme="atlas"] input:focus,html[data-theme="atlas"] select:focus,html[data-theme="atlas"] button:focus-visible,
+html[data-theme="atlas"] #loc:focus-visible,html[data-theme="atlas"] #go:focus-visible,html[data-theme="atlas"] .persona:focus-visible,html[data-theme="atlas"] .tog:focus-visible,html[data-theme="atlas"] .bell:focus-visible,
+html[data-theme="atlas"] .seg button:focus-visible,html[data-theme="atlas"] #nav button:focus-visible{outline-color:var(--station)}
 #cesiumLoading{position:absolute;inset:0;z-index:15;display:grid;place-items:center;
   color:var(--ink-soft);font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;
   background:var(--paper-sunk);text-align:center;padding:20px}
