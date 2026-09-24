@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https://api.nasa.gov https://apod.nasa.gov https://images-assets.nasa.gov https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://basemap.nationalmap.gov https://trek.nasa.gov https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://epic.gsfc.nasa.gov; connect-src 'self' https://api.weather.gov https://api.open-meteo.com https://marine-api.open-meteo.com https://geocoding-api.open-meteo.com https://services.swpc.noaa.gov https://celestrak.org https://tle.ivanstanojevic.me https://eonet.gsfc.nasa.gov https://api.nasa.gov https://images-api.nasa.gov https://cdnjs.cloudflare.com https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://basemap.nationalmap.gov https://trek.nasa.gov https://cdn.jsdelivr.net https://epic.gsfc.nasa.gov; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; manifest-src 'self' data:; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; font-src 'self' data:; img-src 'self' data: blob: https://api.nasa.gov https://apod.nasa.gov https://images-assets.nasa.gov https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://basemap.nationalmap.gov https://trek.nasa.gov https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://epic.gsfc.nasa.gov; connect-src 'self' https://api.weather.gov https://api.open-meteo.com https://marine-api.open-meteo.com https://geocoding-api.open-meteo.com https://services.swpc.noaa.gov https://celestrak.org https://tle.ivanstanojevic.me https://eonet.gsfc.nasa.gov https://api.nasa.gov https://images-api.nasa.gov https://cdnjs.cloudflare.com https://gibs.earthdata.nasa.gov https://mesonet.agron.iastate.edu https://basemap.nationalmap.gov https://trek.nasa.gov https://cdn.jsdelivr.net https://epic.gsfc.nasa.gov https://groundstation-ais-relay-production.up.railway.app; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; manifest-src 'self' data:; object-src 'none'; base-uri 'none'">
 <meta name="theme-color" content="#06070C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Groundstation%22%2C%22short_name%22%3A%22GS%22%2C%22display%22%3A%22standalone%22%2C%22start_url%22%3A%22.%22%2C%22scope%22%3A%22.%22%2C%22theme_color%22%3A%22%2306070C%22%2C%22background_color%22%3A%22%2306070C%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520192%2520192%2522%253E%253Crect%2520width%253D%2522192%2522%2520height%253D%2522192%2522%2520rx%253D%252224%2522%2520fill%253D%2522%2523E8590C%2522%252F%253E%253Ctext%2520x%253D%252296%2522%2520y%253D%2522128%2522%2520font-family%253D%2522Arial%252CHelvetica%252Csans-serif%2522%2520font-size%253D%252288%2522%2520font-weight%253D%2522700%2522%2520text-anchor%253D%2522middle%2522%2520fill%253D%2522%2523fff%2522%253EGS%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%22%7D%5D%7D">
@@ -1972,6 +1972,7 @@ function applyRadarPaint(){
   if(!map || !map.getLayer('rad-active')) return;
   const on = L_RAD.on && radarAvailable() && timeMode!=='forecast';   // forecast mode never fakes future tiles
   map.setPaintProperty('rad-active','raster-opacity', on?0.82:0);
+  map.setLayoutProperty('rad-active','visibility', on?'visible':'none');   // hidden layers fetch no tiles (bandwidth at sea)
   const pt = precipType();
   const tint = S.radarMode==='type' && pt.type!=='none' && pt.type!=='unknown';   // a dry hour keeps the echoes as they are
   map.setPaintProperty('rad-active','raster-hue-rotate', tint ? (pt.hue||0) : 0);
@@ -2078,9 +2079,10 @@ function addMarker(){
 }
 
 /* ================= CRUISE — Harmony of the Seas, 19–26 Sep 2026 =================
-   No keyless CORS AIS source exists, so the ship is dead-reckoned along the
-   itinerary (great-circle legs, schedule as truth) with a manual fix override.
-   Everything except sea state and the storm check is pure client math.        */
+   Position, best first: live AIS from our relay (aisstream.io forbids direct
+   browser clients) → manual fix (<3 h) → dead reckoning along the itinerary
+   (great-circle legs, schedule as truth). Route, ports, DR, sun and facts are
+   pure client math; AIS, sea state and the storm check are the only fetches. */
 function deepFreeze(o){ Object.values(o).forEach(v=>{ if(v && typeof v==='object') deepFreeze(v); }); return Object.freeze(o); }
 const CRUISE = deepFreeze({
   ship: {
@@ -2161,6 +2163,14 @@ const TOTAL_NMI = LEGS.reduce((a,l)=>a+l.nmi,0);
 const CRUISE_ACTIVE = Date.now()>=SAIL_MS-48*3600e3 && Date.now()<=RETURN_MS+48*3600e3;
 const FIX_MAX_MS = 3*3600e3;
 
+/* ---- AIS relay: /ships?lat&lon&r → vessels nearby + the cruise ship's own live fix ----
+   Origin can be overridden per device (gs.aisRelay) for a self-hosted relay. */
+const AIS_RELAY_DEFAULT = 'https://groundstation-ais-relay-production.up.railway.app';
+const AIS_RADIUS_NMI = 60, AIS_LIVE_MAX_MS = 10*60e3, AIS_POLL_MS = 60e3;
+const aisRelay = () => (store.get('gs.aisRelay') || AIS_RELAY_DEFAULT).trim().replace(/\/+$/,'');
+let liveFix = null;                 // {lat,lon,sog,cog,hdg,at} for CRUISE.ship.mmsi
+const basePhase = c => (c.phase==='fix' || c.phase==='live') ? c.drPhase : c.phase;
+
 /* Ship time. All ports are UTC−4 this week; formatting in America/New_York
    keeps the card in ship time for anyone viewing from Wisconsin. */
 function shipFmt(opts){
@@ -2213,6 +2223,14 @@ function readFix(){
    reported as "last fix" but ignored. */
 function cruiseNow(date=new Date()){
   const now = +date, dr = drAt(now), fix = readFix();
+  if(liveFix && now-liveFix.at>=0 && now-liveFix.at<AIS_LIVE_MAX_MS){
+    const pos={lat:liveFix.lat, lon:liveFix.lon};
+    return {...dr, phase:'live', drPhase:dr.phase, lat:pos.lat, lon:pos.lon,
+      heading: Number.isFinite(liveFix.cog) ? liveFix.cog : (dr.to ? initialBearing(pos,dr.to) : dr.heading),
+      sog: Number.isFinite(liveFix.sog) ? liveFix.sog : null,
+      distToNextNmi: dr.to ? gcDist(pos,dr.to).nmi : 0,
+      liveAt:new Date(liveFix.at), liveAgeMin:Math.round((now-liveFix.at)/60e3)};
+  }
   if(fix && now-fix.at>=0 && now-fix.at<FIX_MAX_MS){
     const pos={lat:fix.lat, lon:fix.lon};
     return {...dr, phase:'fix', drPhase:dr.phase, lat:fix.lat, lon:fix.lon,
@@ -2231,7 +2249,7 @@ function legPoints(leg,f0,f1){
 }
 const lineF = (pts,sailed) => ({type:'Feature', geometry:{type:'LineString',coordinates:pts}, properties:{sailed}});
 function routeGeo(c){
-  const ph = c.phase==='fix' ? c.drPhase : c.phase, feats=[];
+  const ph = basePhase(c), feats=[];
   LEGS.forEach(leg=>{
     if(ph==='post' || leg.i<c.legIdx) feats.push(lineF(legPoints(leg,0,1),true));
     else if(ph==='pre' || ph==='port' || leg.i>c.legIdx) feats.push(lineF(legPoints(leg,0,1),false));
@@ -2282,6 +2300,7 @@ function addCruise(){
   const g = el(`<div class="ship-glyph" role="img" aria-label="Harmony of the Seas, dead-reckoned position">
     <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2.2 14 15 9 12 4 15Z"/></svg></div>`);
   shipMarker = new maplibregl.Marker({element:g, rotationAlignment:'map'}).setLngLat([c.lon,c.lat]).addTo(map);
+  addShips();
   setCruiseVisible(L.on);
   if(L.on){
     try{
@@ -2301,12 +2320,14 @@ function setCruiseVisible(on){
 }
 /* Tick: DR, marker, route split, card. Only position-derived rows re-render. */
 function updateShip(){
+  fetchShips();                       // self-throttled to AIS_POLL_MS; also refreshes the live fix
   if(!cruiseOn()) return;
   const c = cruiseNow();
   if(shipMarker){
     shipMarker.setLngLat([c.lon,c.lat]);
-    shipMarker.setRotation((c.phase==='sea' || c.phase==='fix') ? c.heading : 0);
-    shipMarker.getElement().setAttribute('aria-label', c.phase==='fix' ? 'Harmony of the Seas, manual fix position' : 'Harmony of the Seas, dead-reckoned position');
+    shipMarker.setRotation((c.phase==='live' || basePhase(c)==='sea') ? c.heading : 0);
+    shipMarker.getElement().setAttribute('aria-label', c.phase==='live' ? 'Harmony of the Seas, live AIS position'
+      : c.phase==='fix' ? 'Harmony of the Seas, manual fix position' : 'Harmony of the Seas, dead-reckoned position');
   }
   if(map && styleReady && map.getSource('cruise-route')) map.getSource('cruise-route').setData(routeGeo(c));
   renderShipCard(c);
@@ -2362,6 +2383,7 @@ function buildShipCard(card){
       ${row('Next','next')}
       ${row('From','dist')}
       ${row('Sea','sea',' aria-live="off"')}
+      ${row('Ships','ships',' aria-live="off"')}
       ${row('Sun','sun')}
       <div class="row use" aria-live="off">
         <button type="button" class="primary" id="shipUse" aria-label="Use the ship's position as the app location">Use ship as location</button>
@@ -2433,7 +2455,7 @@ function saveFix(card){
 }
 function setRow(name, text){ setText($(`#shipCard [data-row=${name}]`), text); }
 function pillText(c){
-  const ph = c.phase==='fix' ? c.drPhase : c.phase;
+  const ph = basePhase(c);
   if(ph==='sea') return `${c.label.split(' · ')[0]} · ${shipWdHM(c.etaNext)} · ${fmtN(c.distToNextNmi)} nmi`;
   if(ph==='port') return c.from.depart ? `In port · ${c.from.short} · all-aboard ${shipHM(c.from.departMs-CRUISE.allAboardMin*60e3)}` : 'Docked · Port Canaveral';
   if(ph==='pre') return `Pre-sail · sails ${shipWdHM(SAIL_MS)}`;
@@ -2452,7 +2474,7 @@ function sunLine(pos, now){
 function renderShipCard(c){
   const card = ensureShipCard(); if(!card) return;
   const now = Date.now(), pos = {lat:c.lat, lon:c.lon};
-  const ph = c.phase==='fix' ? c.drPhase : c.phase;
+  const ph = basePhase(c);
   let leg;
   if(ph==='port') leg = c.from.depart ? `In port · ${c.from.short} · all-aboard ${shipHM(c.from.departMs-CRUISE.allAboardMin*60e3)}` : 'Docked · Port Canaveral';
   else if(ph==='pre') leg = `Boards Sat 19 Sep · sails ${shipHM(SAIL_MS)}`;
@@ -2461,10 +2483,12 @@ function renderShipCard(c){
   if(!radarAvailable(c.lat,c.lon)) leg += ' · NEXRAD: out of range';
   setRow('leg', leg);
 
-  const tag = c.phase==='fix' ? `(FIX ${c.fixAgeMin}m)` : '(DR)';
-  setRow('pos', ph==='sea'
-    ? `${fmtLL(c.lat,c.lon)} · hdg ${String(Math.round(c.heading)).padStart(3,'0')}° · ~${Math.round(c.legSpeedKn)} kn ${tag}`
+  const tag = c.phase==='live' ? `(LIVE AIS ${c.liveAgeMin}m)` : c.phase==='fix' ? `(FIX ${c.fixAgeMin}m)` : '(DR)';
+  const spd = c.phase==='live' && Number.isFinite(c.sog) ? `${c.sog.toFixed(1)} kn` : `~${Math.round(c.legSpeedKn)} kn`;
+  setRow('pos', (ph==='sea' || c.phase==='live')
+    ? `${fmtLL(c.lat,c.lon)} · hdg ${String(Math.round(c.heading)).padStart(3,'0')}° · ${spd} ${tag}`
     : `${fmtLL(c.lat,c.lon)} · alongside ${tag}`);
+  renderShipsRow();
 
   let nx;
   if(c.to && ph==='sea') nx = `${fmtN(c.distToNextNmi)} nmi · ETA ${shipWdHM(c.etaNext)} (${fmtDur(c.etaNext-now)})`;
@@ -2477,7 +2501,8 @@ function renderShipCard(c){
   const b = card.querySelector('#shipBortle'); if(b) b.hidden = !(S.loc && S.loc.ship);
   setText(card.querySelector('.pt'), (stormOn?'⚠︎ ':'⚓︎ ') + pillText(c));
   const fn = card.querySelector('#shipFixNote');
-  if(c.phase==='fix') setText(fn, `FIX · ${c.fixAgeMin} min ago`);
+  if(c.phase==='live') setText(fn, `LIVE · AIS ${c.liveAgeMin} min ago`);
+  else if(c.phase==='fix') setText(fn, `FIX · ${c.fixAgeMin} min ago`);
   else if(c.lastFix) setText(fn, `Last fix ${fmtAgo(now-c.lastFix.at)} · ignored, DR shown`);
   loadSeaState(pos);
   loadStorms(pos);
@@ -2543,6 +2568,89 @@ function setStorm(names){
   setText($('#shipCard .pt'), (stormOn?'⚠︎ ':'⚓︎ ') + pillText(cruiseNow()));
 }
 
+/* ---- Ships (AIS) layer: vessels within AIS_RADIUS_NMI of the cruise ship (or S.loc) ----
+   Arrow icons rotated by course, opacity dimmed when a report is >15 min old; a
+   click gives name/type/speed/course/destination. The relay's `focus` entry is
+   the cruise ship herself → becomes the live fix used by cruiseNow(). */
+let shipsFeats=null, _shipsInflight=false, _shipsAt=0, shipsMeta={count:0,nearest:null,demo:false,err:''};
+function shipIcon(){
+  if(!map || map.hasImage('ais-arrow')) return;
+  const s=22, cv=document.createElement('canvas'); cv.width=s; cv.height=s;
+  const g=cv.getContext('2d'); g.translate(s/2,s/2);
+  g.beginPath(); g.moveTo(0,-9); g.lineTo(6,8); g.lineTo(0,5); g.lineTo(-6,8); g.closePath();
+  g.fillStyle=cssVar('--station')||'#4A9FD8'; g.fill();
+  g.lineWidth=1.5; g.strokeStyle=cssVar('--paper')||'#06070C'; g.stroke();
+  map.addImage('ais-arrow', g.getImageData(0,0,s,s), {pixelRatio:1});
+}
+function addShips(){
+  const L=layer('ships'); if(!L || !map || map.getSource('ais-ships')) return;
+  shipIcon();
+  map.addSource('ais-ships',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'ais-ships',type:'symbol',source:'ais-ships',
+    layout:{visibility:L.on?'visible':'none','icon-image':'ais-arrow','icon-rotate':['get','rot'],
+      'icon-rotation-alignment':'map','icon-allow-overlap':true,'icon-ignore-placement':true,
+      'icon-size':['interpolate',['linear'],['zoom'],4,0.6,9,1]},
+    paint:{'icon-opacity':['case',['>',['to-number',['get','ageS']],900],0.45,1]}});
+  map.on('click','ais-ships', ev=>{
+    const p = ev.features[0].properties;   // external strings — escape at the sink
+    const sog = Number.isFinite(+p.sog) && p.sog!=='' ? (+p.sog).toFixed(1)+' kn' : '— kn';
+    const cog = Number.isFinite(+p.cog) && p.cog!=='' ? String(Math.round(+p.cog)).padStart(3,'0')+'°' : '—';
+    new maplibregl.Popup({closeButton:false}).setLngLat(ev.lngLat)
+      .setHTML(`<div style="font:600 12px var(--f-ui)">${esc(p.name||'Unnamed vessel')}</div>
+                <div style="font:11px var(--f-mono)">${esc(p.type)} · ${sog} · ${cog}${p.dest?' · → '+esc(p.dest):''}</div>
+                <div style="font:11px var(--f-mono)">${fmtN(+p.dist)} nmi ${compass(+p.brg)} · ${fmtAgo((+p.ageS||0)*1000)} · MMSI ${esc(p.mmsi)}</div>`).addTo(map);
+  });
+  map.on('mouseenter','ais-ships',()=>map.getCanvas().style.cursor='pointer');
+  map.on('mouseleave','ais-ships',()=>map.getCanvas().style.cursor='');
+  if(L.on) fetchShips(true);
+}
+function shipsCenter(){ const c = cruiseOn() ? cruiseNow() : S.loc; return {lat:+c.lat, lon:+c.lon}; }
+async function fetchShips(force){
+  const L=layer('ships'); if(!L || !L.on || !map || !styleReady) return;
+  const relay = aisRelay();
+  if(!relay){ setLayerNote('ships','no relay'); shipsMeta.err='no relay'; renderShipsRow(); return; }
+  if(_shipsInflight) return;
+  if(!force && Date.now()-_shipsAt < AIS_POLL_MS-5e3) return;
+  _shipsInflight = true;
+  const c = shipsCenter();
+  try{
+    const d = await jget(`${relay}/ships?lat=${c.lat.toFixed(4)}&lon=${c.lon.toFixed(4)}&r=${AIS_RADIUS_NMI}`,{timeout:15000});
+    _shipsAt = Date.now();
+    const own = String(CRUISE.ship.mmsi);
+    const feats = (d.ships||[]).filter(s=>String(s.mmsi)!==own && Number.isFinite(+s.lat) && Number.isFinite(+s.lon)).map(s=>({
+      type:'Feature', geometry:{type:'Point',coordinates:[+s.lon,+s.lat]},
+      properties:{mmsi:String(s.mmsi), name:s.name||'', type:s.type||'unknown', sog:s.sog??'', cog:s.cog??'', hdg:s.hdg??'',
+        dest:s.dest||'', ageS:+s.ageS||0, dist:+s.distNmi||0, brg:+s.brg||0,
+        rot: Number.isFinite(+s.cog) && s.cog!==null ? +s.cog : (Number.isFinite(+s.hdg) && s.hdg!==null ? +s.hdg : 0)}}));
+    shipsFeats = feats;
+    if(map.getSource('ais-ships')) map.getSource('ais-ships').setData({type:'FeatureCollection',features:feats});
+    shipsMeta = {count:feats.length, nearest:feats[0]?feats[0].properties:null, demo:!!d.demo, err:''};
+    const f = d.focus;
+    if(f && Number.isFinite(+f.lat) && Number.isFinite(+f.lon) && (+f.ageS||0)*1000 < AIS_LIVE_MAX_MS)
+      liveFix = {lat:+f.lat, lon:+f.lon, sog:Number.isFinite(+f.sog)&&f.sog!==null?+f.sog:null,
+                 cog:Number.isFinite(+f.cog)&&f.cog!==null?+f.cog:null, hdg:f.hdg, at:Date.now()-(+f.ageS||0)*1000};
+    setLayerNote('ships', feats.length ? `${feats.length} within ${AIS_RADIUS_NMI} nmi${d.demo?' · demo':''}` : 'none nearby');
+    renderShipsRow();
+    if(cruiseOn()) updateShip();          // live fix may have moved the ship
+  }catch(e){
+    const msg = /503|no_key/.test(String(e && e.message)) ? 'relay: no key' : 'relay down';
+    shipsMeta.err = msg; setLayerNote('ships', msg); renderShipsRow();
+  }finally{ _shipsInflight = false; }
+}
+function renderShipsRow(){
+  if(!$('#shipCard [data-row=ships]')) return;
+  const L = layer('ships');
+  if(!L || !L.on){ setRow('ships','Ships layer off'); return; }
+  if(shipsMeta.err){ setRow('ships', `AIS ${shipsMeta.err}`); return; }
+  const n = shipsMeta.nearest;
+  setRow('ships', shipsMeta.count
+    ? `${shipsMeta.count} within ${AIS_RADIUS_NMI} nmi · nearest ${n.name||n.type} ${fmtN(n.dist)} nmi ${compass(n.brg)}${shipsMeta.demo?' · DEMO':''}`
+    : `None within ${AIS_RADIUS_NMI} nmi`);
+}
+function setShipsVisible(on){
+  whenReady(()=>{ setVis(['ais-ships'], on); if(on) fetchShips(true); else { setLayerNote('ships',''); renderShipsRow(); } });
+}
+
 /* Thermal/fire (VIIRS_SNPP_Thermal_Anomalies_375m_All) is NOT served in EPSG3857
    GoogleMapsCompatible at any zoom (verified 400), so it is not a layer. Cloud-top
    temp IS served at GoogleMapsCompatible_Level6. */
@@ -2553,7 +2661,8 @@ const LAYERS = [
   {id:'eonet-l', label:'Natural events', on:false, avail:true},
   {id:'gibs-cloud', label:'Cloud (MODIS, daily)', on:false, avail:true,
    url:GIBS3857+`MODIS_Terra_Cloud_Top_Temp_Day/default/${iso(new Date(Date.now()-864e5))}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`, max:6},
-  {id:'cruise', label:'Cruise', on:CRUISE_ACTIVE, avail:true}
+  {id:'cruise', label:'Cruise', on:CRUISE_ACTIVE, avail:true},
+  {id:'ships',  label:'Ships (AIS)', on:CRUISE_ACTIVE, avail:true}
 ];
 const L_RAD = LAYERS[0];
 const layer = id => LAYERS.find(l=>l.id===id);
@@ -2589,6 +2698,7 @@ function toggleLayer(L){
   if(L.id==='rad'){ applyRadarPaint(); return; }
   if(L.id==='wind'){ toggleWind(L.on); return; }
   if(L.id==='cruise'){ setCruiseVisible(L.on); return; }
+  if(L.id==='ships'){ setShipsVisible(L.on); return; }
   if(!map || !styleReady){ whenReady(()=>toggleLayer(L)); return; }
   if(L.id==='nws'){ setVis(['nws-fill','nws-line'], L.on); updateWarnCard(); return; }
   if(L.id==='eonet-l'){ setVis(['eonet-l'], L.on); if(L.on) eonetNote(); else setLayerNote('eonet-l',''); return; }
